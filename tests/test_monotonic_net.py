@@ -107,15 +107,11 @@ def test_MonotonicLayer_multi_monotone():
         act=torch.relu
     )(z=z2, z0=z0, t=ts, g=gs)
 
-    if torch.cuda.is_available(): 
-        dev = "cuda:0" 
-    else: 
-        dev = "cpu" 
-
     is_grad_non_neg = []
     for i in out:
         i.backward(retain_graph=True)
         is_grad_non_neg.append(all(ts.grad >= 0))
         is_grad_non_neg.append(all(gs.grad <= 0))
     assert all(is_grad_non_neg)
+
             
