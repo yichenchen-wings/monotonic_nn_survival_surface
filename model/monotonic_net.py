@@ -74,11 +74,11 @@ class MonotonicLayer(nn.Module):
         self._clamp_weights()
 
         alpha_t = self.single_var_monotone_pos(t)
-        theta_t_vs_g = self.single_var_monotone_pos(t/g)
+        gamma_t_vs_g = self.single_var_monotone_pos(t/g)
 
         Az = self.A(z)
         Bz0 = self.B(z0)
-        z_new = self.act(alpha_t + theta_t_vs_g + Az + Bz0)
+        z_new = self.act(alpha_t + gamma_t_vs_g + Az + Bz0)
 
 
         assert z_new.shape == (z.shape[0], self.output_size)
