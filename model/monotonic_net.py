@@ -26,7 +26,7 @@ class SingleVarPosMonotonic(nn.Module):
         y = self.transform(x)
         assert x.shape == (x.shape[0], 1), f"{x.shape=}"
         assert y.shape == (y.shape[0], self.output_size), f"{y.shape=}"
-        return torch.tanh(y) + 1
+        return torch.exp(y)
 
 
 class MonotonicLayer(nn.Module):
