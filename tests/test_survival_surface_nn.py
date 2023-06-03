@@ -46,7 +46,7 @@ def test_SurvivalSurface_monotone():
 def test_SurvivalSurface_range():
     batch_size = 30
     feat_size = 2
-    ts = torch.zeros(batch_size, 1) * 100
+    ts = torch.zeros(batch_size, 1)
     gs = torch.rand(batch_size, 1) * 100
     xs = torch.rand(batch_size, feat_size) * 100 - 50
     net = MonotonicNet([feat_size,10,10,1])
