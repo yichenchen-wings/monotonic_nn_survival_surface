@@ -130,10 +130,10 @@ def test_MonotonicNet_shape():
 
 
 def test_MonotonicNet_monotone():
-    batch_size = 30
+    batch_size = 100
     ts = torch.rand(batch_size, 1, requires_grad=True)
     gs = torch.rand(batch_size, 1, requires_grad=True)
-    net = MonotonicNet(latent_sizes=[10, 10, 1])
+    net = MonotonicNet(latent_sizes=[64, 64, 1])
     out = net(t=ts, g=gs, z=None)
 
     is_grad_non_neg = []

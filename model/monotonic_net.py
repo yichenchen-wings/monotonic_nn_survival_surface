@@ -9,24 +9,27 @@ class SingleVarPosMonotonic(nn.Module):
         super().__init__()
         self.output_size = output_size
 
-        self.b =  nn.Parameter(torch.rand(1))
+        self.b_ =  nn.Parameter(torch.rand(1, output_size))
         self.w_ = nn.Parameter(torch.rand(1, output_size))
 
     @property
     def w(self):
         self.w_.data.clamp_(min=0)
         return self.w_
-
+    @property
+    def b(self):
+        self.b_.data.clamp_(min=0)
+        return self.b_
 
     def transform(self, x):
         assert x.shape == (len(x), 1), f"{x.shape=}"
-        return torch.matmul(x+self.b, self.w)
+        return torch.matmul(x, self.w) + self.b
 
     def forward(self, x):
         y = self.transform(x)
         assert x.shape == (x.shape[0], 1), f"{x.shape=}"
         assert y.shape == (y.shape[0], self.output_size), f"{y.shape=}"
-        return torch.exp(y)
+        return y
 
 
 class MonotonicLayer(nn.Module):
@@ -69,13 +72,13 @@ class MonotonicLayer(nn.Module):
         assert torch.all(g > 0)
 
         self._clamp_weights()
+
         alpha_t = self.single_var_monotone_pos(t)
-        gamma_g = self.single_var_monotone_pos(g)
-        alpha_t_vs_gamma_g = alpha_t/gamma_g
         theta_t_vs_g = self.single_var_monotone_pos(t/g)
+
         Az = self.A(z)
         Bz0 = self.B(z0)
-        z_new = self.act(alpha_t_vs_gamma_g + theta_t_vs_g + Az + Bz0)
+        z_new = self.act(alpha_t + theta_t_vs_g + Az + Bz0)
 
 
         assert z_new.shape == (z.shape[0], self.output_size)
