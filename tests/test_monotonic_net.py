@@ -1,6 +1,7 @@
 from model.monotonic_net import MonotonicLayer, SingleVarPosMonotonic, MonotonicNet
 import torch
 import numpy as np
+import pytest
 
 def test_SingleVarPosMonotonic_shape():
     batch_size = 5
@@ -75,7 +76,12 @@ def test_MonotonicLayer_multi_shape():
     assert out.shape == (ts.shape[0], 1)
 
 
-def test_MonotonicLayer_multi_monotone():
+@pytest.mark.parametrize(
+    "seed", 
+    [i for i in range(1, 100, 5)]
+)
+def test_MonotonicLayer_multi_monotone(seed):
+    torch.manual_seed(seed)
     batch_size = 30
     z = torch.zeros(batch_size, 3)
     z0 = torch.rand(batch_size, 5)
@@ -129,11 +135,22 @@ def test_MonotonicNet_shape():
     assert out.shape == (batch_size, 1)
 
 
-def test_MonotonicNet_monotone():
+@pytest.mark.parametrize(
+    "seed, mid_layer_sizes", 
+    [
+        (i, [32,32]) for i in range(1, 100, 10)
+    ] + [
+        (i, [32, 64, 32]) for i in range(100, 200, 10)
+    ] + [
+        (i, [32, 64, 32, 32]) for i in range(200, 300, 10)
+    ]
+)
+def test_MonotonicNet_monotone(seed, mid_layer_sizes):
+    torch.manual_seed(seed)
     batch_size = 100
     ts = torch.rand(batch_size, 1, requires_grad=True)
     gs = torch.rand(batch_size, 1, requires_grad=True)
-    net = MonotonicNet(latent_sizes=[64, 64, 1])
+    net = MonotonicNet(latent_sizes=mid_layer_sizes + [1])
     out = net(t=ts, g=gs, z=None)
 
     is_grad_non_neg = []
@@ -149,8 +166,12 @@ def test_MonotonicNet_monotone():
     assert all(is_grad_non_neg)
     assert all(is_grad_non_pos) 
 
-
-def test_MonotonicNet_zero():
+@pytest.mark.parametrize(
+    "seed", 
+    [i for i in range(1, 100, 5)]
+)
+def test_MonotonicNet_zero(seed):
+    torch.manual_seed(seed)
     batch_size = 30
     ts = torch.zeros(batch_size, 1)
     gs = torch.rand(batch_size, 1)
@@ -163,11 +184,23 @@ def test_MonotonicNet_zero():
     assert all(is_zero)
 
 
-def test_MonotonicNet_non_neg():
+
+@pytest.mark.parametrize(
+    "seed, mid_layer_sizes", 
+    [
+        (i, [32,32]) for i in range(1, 100, 10)
+    ] + [
+        (i, [32, 64, 32]) for i in range(100, 200, 10)
+    ] + [
+        (i, [32, 64, 32, 32]) for i in range(200, 300, 10)
+    ]
+)
+def test_MonotonicNet_non_neg(seed, mid_layer_sizes):
+    torch.manual_seed(seed)
     batch_size = 30
     ts = torch.rand(batch_size, 1)
     gs = torch.rand(batch_size, 1)
-    net = MonotonicNet(latent_sizes=[10, 10, 1])
+    net = MonotonicNet(latent_sizes=mid_layer_sizes + [1])
     out = net(t=ts, g=gs, z=None)
 
     is_pos = []
