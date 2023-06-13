@@ -8,25 +8,20 @@ class SingleVarPosMonotonic(nn.Module):
     def __init__(self, output_size=64):
         super().__init__()
         self.output_size = output_size
+        self.A = self._get_A()
 
-        self.b_ =  nn.Parameter(torch.rand(1, output_size))
-        self.w_ = nn.Parameter(torch.rand(1, output_size))
+    def _get_A(self):
+        A = nn.Linear(1, self.output_size, bias=True)
+        A.weight.data = A.weight.data.abs()
+        return A
 
-    @property
-    def w(self):
-        self.w_.data.clamp_(min=0)
-        return self.w_
-    @property
-    def b(self):
-        self.b_.data.clamp_(min=0)
-        return self.b_
-
-    def transform(self, x):
-        assert x.shape == (len(x), 1), f"{x.shape=}"
-        return torch.matmul(x, self.w) + self.b
+    @torch.no_grad()
+    def _clamp_weights(self):
+        self.A.weight.data.clamp_(0)
 
     def forward(self, x):
-        y = self.transform(x)
+        self._clamp_weights()
+        y = self.A(x)
         assert x.shape == (x.shape[0], 1), f"{x.shape=}"
         assert y.shape == (y.shape[0], self.output_size), f"{y.shape=}"
         return y
@@ -108,7 +103,7 @@ class MonotonicNet(nn.Module):
 
 
     def _adjust_towards_zero(self, z, z0, t, g):
-        z = z - self(t=torch.zeros(*t.shape), g=g, z=z0, survival=False)
+        z = z - self(t=t-t, g=g, z=z0, survival=False)
         if np.isnan(torch.min(z).item()):
             raise ValueError("Found a nan in one of MonotonicNet's activations.")
         assert torch.all(-1e-2 < z), f"{torch.min(z)=}"
