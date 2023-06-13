@@ -1,5 +1,5 @@
-from model.monotonic_net import MonotonicNet
-from model.survival_surface_nn import SurvivalSurface
+from monotonic_nn_surv_surf.monotonic_net import MonotonicNet
+from monotonic_nn_surv_surf.survival_surface_nn import SurvivalSurface
 import torch
 import numpy as np
 import pytest

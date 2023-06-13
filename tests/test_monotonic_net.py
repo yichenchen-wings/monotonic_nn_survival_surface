@@ -1,4 +1,4 @@
-from model.monotonic_net import MonotonicLayer, SingleVarPosMonotonic, MonotonicNet
+from monotonic_nn_surv_surf.monotonic_net import MonotonicLayer, SingleVarPosMonotonic, MonotonicNet
 import torch
 import numpy as np
 import pytest
