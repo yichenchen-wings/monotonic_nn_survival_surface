@@ -1,0 +1,27 @@
+name: template_env
+### Note that you could remove all the version tags in this document
+### to get conda/mamba to install the (inter-compatible) latest version 
+### of all dependencies;
+### When you finish the project, you can copy the version numbers from 
+### `conda list -n env_name` to this document, so you freeze them for the next user.
+
+channels:
+- defaults
+dependencies:
+- python>=3.10, <3.11 # Needed to run python
+- pip # Needed to enable pip install inside conda envs,
+- ipykernel # for notebook
+
+# Below are examples of project-specific python and R packages (including versions)
+
+# python packages
+- pytorch=*=*cuda*
+- numpy
+- pandas
+- seaborn
+- scikit-learn
+- tqdm 
+- IProgress 
+- conda-forge::lightning=2.0.3
+- conda-forge::ipywidgets
+- conda-forge::optuna=3.2.0

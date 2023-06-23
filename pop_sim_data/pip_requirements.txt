@@ -1,0 +1,6 @@
+# anything that cannot be installed by conda
+# need to be installed via pip.
+
+
+# Pleas list packages you need to install via pip
+-e ../
