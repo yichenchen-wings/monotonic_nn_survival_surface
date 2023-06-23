@@ -4,5 +4,5 @@ setup(
     name='monotonic_nn_surv_surf',
     version='0.1.0',
     author='Yichen Chen',
-    py_modules=['model'],
+    packages=['monotonic_nn_surv_surf'],
 )
