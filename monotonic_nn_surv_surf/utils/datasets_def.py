@@ -6,9 +6,11 @@ import numpy as np
 
 
 class DatasetFeatANDtgy(Dataset):
-    def __init__(self, path_feat_by_subj, path_state_history_max_grade, max_grade, max_time):
+    def __init__(self, path_feat_by_subj, path_state_history_max_grade, max_grade, max_time, trans_only):
         self.max_grade = max_grade
         self.max_time = max_time
+        self.trans_only = trans_only
+
 
         df_features = pd.read_csv(path_feat_by_subj, index_col=0)
         assert 'subject' in df_features.columns
@@ -19,11 +21,16 @@ class DatasetFeatANDtgy(Dataset):
         df_X_y_ready = self._get_X_y_ready(df_features=df_features,df_state_history_max_grade=df_state_history_max_grade)
 
         self.observed = df_X_y_ready
-        weights = self.observed.groupby(['g','t']).apply(lambda x: x.shape[0]).rename('weight')
+
+        if self.trans_only:
+            balance_by = ['g','t']
+        else:
+            balance_by = 'trans_ref'
+        weights = self.observed.groupby(balance_by).apply(lambda x: x.shape[0]).rename('weight')
         self.observed = self.observed.merge(
             right=weights.reset_index(),
             how='left',
-            on=['g','t']
+            on=balance_by
         )
         self.observed['weight'] = 1-self.observed['weight']/self.observed['weight'].sum()
         self.observed['weight'] = self.observed['weight']/self.observed['weight'].sum() * self.observed['weight'].size
@@ -34,7 +41,46 @@ class DatasetFeatANDtgy(Dataset):
         self.y = torch.tensor(self.observed[['y']].values, dtype=torch.float32)
         self.weight = torch.tensor(self.observed[['weight']].values, dtype=torch.float32)
         
-    def _obs_to_labels(self, df_subj_max_grade_traj):
+    def _obs_to_labels_all_tg(self, df_subj_max_grade_traj):
+        df_sorted = df_subj_max_grade_traj.sort_values('time')
+        ts_raw = df_sorted['time'].values
+        gs_raw = df_sorted['state_max_by_time'].values
+
+        if ts_raw[0] != 0:
+            ts_raw = np.r_[[0], ts_raw] 
+            gs_raw = np.r_[[0], gs_raw]
+
+        traj = pd.Series(gs_raw, index=ts_raw)
+
+        rows = []
+        for t in traj.index:
+            g_obs = traj[t]
+            for g in range(1, self.max_grade+1):    
+                if g in [g_obs, g_obs+1]:
+                    trans_ref = 'at_trans'
+                else:
+                    trans_ref = 'off_trans'
+                if g > g_obs:
+                    rows.append(
+                        {
+                            't':t,
+                            'g':g,
+                            'y':0,
+                            'trans_ref':trans_ref
+                        }
+                    )
+                else:
+                    rows.append(
+                        {
+                            't':t,
+                            'g':g,
+                            'y':1,
+                            'trans_ref':trans_ref
+                        }
+                    )
+        return pd.DataFrame(rows)
+    
+    def _obs_to_labels_trans_tg(self, df_subj_max_grade_traj):
         df_sorted = df_subj_max_grade_traj.sort_values('time')
         ts_raw = df_sorted['time'].values
         gs_raw = df_sorted['state_max_by_time'].values
@@ -49,7 +95,7 @@ class DatasetFeatANDtgy(Dataset):
         for t in traj.index:
             g_obs = traj[t]
             for g in [g_obs, g_obs+1]:
-                if (g > self.max_grade) or (g == 0):
+                if (g == 0) or (g > self.max_grade):
                     continue
                 if g > g_obs:
                     rows.append(
@@ -57,7 +103,7 @@ class DatasetFeatANDtgy(Dataset):
                             't':t,
                             'g':g,
                             'y':0,
-                            'trans_ref':'can_not_happen'
+                            'trans_ref':'not_possible'
                         }
                     )
                 else:
@@ -66,13 +112,16 @@ class DatasetFeatANDtgy(Dataset):
                             't':t,
                             'g':g,
                             'y':1,
-                            'trans_ref':'must_happen'
+                            'trans_ref':'happened'
                         }
                     )
         return pd.DataFrame(rows)
     
     def _get_y(self, df_X_y):
-        df_y = df_X_y.groupby('subject').apply(self._obs_to_labels)
+        if self.trans_only:
+            df_y = df_X_y.groupby('subject').apply(self._obs_to_labels_trans_tg)
+        else:
+            df_y = df_X_y.groupby('subject').apply(self._obs_to_labels_all_tg)
         return df_y
     
     def _get_X_y_ready(self, df_features, df_state_history_max_grade):
