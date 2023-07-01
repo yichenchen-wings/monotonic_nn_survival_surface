@@ -35,7 +35,10 @@ class MonotonicLayer(nn.Module):
         self.z0_input_size = z0_input_size
         self.output_size = output_size
 
-        self.single_var_monotone_pos = SingleVarPosMonotonic(
+        self.single_var_monotone_pos_t = SingleVarPosMonotonic(
+            output_size=output_size, 
+        )
+        self.single_var_monotone_pos_g = SingleVarPosMonotonic(
             output_size=output_size, 
         )
 
@@ -51,7 +54,7 @@ class MonotonicLayer(nn.Module):
         return A
 
     def _get_B(self, input_size, output_size):
-        B = nn.Linear(input_size, output_size)
+        B = nn.Linear(input_size, output_size, bias=True)
         return B
 
     @torch.no_grad()
@@ -68,8 +71,8 @@ class MonotonicLayer(nn.Module):
 
         self._clamp_weights()
 
-        alpha_t = self.single_var_monotone_pos(t)
-        gamma_t_vs_g = self.single_var_monotone_pos(t/g)
+        alpha_t = self.single_var_monotone_pos_t(t)
+        gamma_t_vs_g = self.single_var_monotone_pos_g(t/g)
 
         Az = self.A(z)
         Bz0 = self.B(z0)
