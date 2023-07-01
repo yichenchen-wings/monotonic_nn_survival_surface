@@ -207,3 +207,20 @@ def test_MonotonicNet_non_neg(seed, mid_layer_sizes):
     for i in out:
         is_pos.append(i > 0)
     assert any(is_pos)
+
+
+def test_MonotonicNet_on_gpu():
+    if torch.cuda.is_available():
+        batch_size = 30
+        mid_layer_sizes = [32, 64, 32, 32]
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        ts = torch.rand(batch_size, 1).to('cuda')
+        gs = torch.rand(batch_size, 1).to('cuda')
+        net = MonotonicNet(latent_sizes=mid_layer_sizes + [1]).to('cuda')
+        net(t=ts, g=gs, z=None)
+    else:
+        import warnings
+        warnings.warn('Cannot test model on GPU because no GPU (cuda) is detected.')
+
+    
