@@ -106,7 +106,7 @@ class MonotonicNet(nn.Module):
         z = z - self(t=t-t, g=g, z=z0, survival=False)
         if np.isnan(torch.min(z).item()):
             raise ValueError("Found a nan in one of MonotonicNet's activations.")
-        assert torch.all(-1e-2 < z), f"{torch.min(z)=}"
+        assert torch.all(-1e-2 < z), f"{torch.min(z)}"
 
         z = torch.clamp(z, 0, np.inf)
         return z
