@@ -1,3 +1,7 @@
+pop_sim_data/data_raw/*
+pop_sim_data/data_runtime/*
+pop_sim_data/results_runtime/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
