@@ -46,6 +46,8 @@ class MonotonicLayer(nn.Module):
 
         self.A = self._get_A(input_size, output_size)
         self.B = self._get_B(z0_input_size, output_size)
+        self.intera_coeff_t = self._get_intera_coeff_t(input_size, output_size)
+        self.intera_coeff_g = self._get_intera_coeff_g(input_size, output_size)
 
 
     def _get_A(self, input_size, output_size):
@@ -57,6 +59,16 @@ class MonotonicLayer(nn.Module):
         B = nn.Linear(input_size, output_size, bias=True)
         return B
 
+    def _get_intera_coeff_t(self, input_size, output_size):
+        out = nn.Linear(input_size, output_size, bias=True)
+        out.weight.data = out.weight.data.abs()
+        return out
+    
+    def _get_intera_coeff_g(self, input_size, output_size):
+        out = nn.Linear(input_size, output_size, bias=True)
+        out.weight.data = out.weight.data.abs()
+        return out
+    
     @torch.no_grad()
     def _clamp_weights(self):
         self.A.weight.data.clamp_(0)
@@ -76,7 +88,13 @@ class MonotonicLayer(nn.Module):
 
         Az = self.A(z)
         Bz0 = self.B(z0)
-        z_new = self.act(alpha_t + gamma_t_vs_g + Az + Bz0)
+
+        make_non_neg = torch.nn.Softplus()
+        z_non_neg = make_non_neg(z)
+        
+        interact_t_z = self.intera_coeff_t(t * z_non_neg) 
+        interact_g_z = self.intera_coeff_g(t/g * z_non_neg)
+        z_new = self.act(alpha_t + gamma_t_vs_g + Az + interact_t_z + interact_g_z + Bz0)
 
 
         assert z_new.shape == (z.shape[0], self.output_size)
