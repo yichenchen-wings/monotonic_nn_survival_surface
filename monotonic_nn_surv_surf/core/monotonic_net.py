@@ -44,10 +44,10 @@ class MonotonicLayer(nn.Module):
 
         self.act = act #activation function
 
-        self.A = self._get_A(input_size, output_size)
-        self.B = self._get_B(z0_input_size, output_size)
-        self.intera_coeff_t = self._get_intera_coeff_t(input_size, output_size)
-        self.intera_coeff_g = self._get_intera_coeff_g(input_size, output_size)
+        self.A = self._get_A(input_size, output_size) #non-neg
+        self.B = self._get_B(z0_input_size, output_size) #Don't clamp weight
+        self.intera_coeff_t = self._get_intera_coeff_t(input_size, output_size) #non-neg
+        self.intera_coeff_g = self._get_intera_coeff_g(input_size, output_size) #non-neg
 
 
     def _get_A(self, input_size, output_size):
@@ -72,6 +72,8 @@ class MonotonicLayer(nn.Module):
     @torch.no_grad()
     def _clamp_weights(self):
         self.A.weight.data.clamp_(0)
+        self.intera_coeff_t.weight.data.clamp_(0)
+        self.intera_coeff_g.weight.data.clamp_(0)
 
 
     def forward(self, z, z0, t, g):
