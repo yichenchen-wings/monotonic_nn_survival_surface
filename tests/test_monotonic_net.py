@@ -223,4 +223,7 @@ def test_MonotonicNet_on_gpu():
         import warnings
         warnings.warn('Cannot test model on GPU because no GPU (cuda) is detected.')
 
+    with torch.no_grad():
+        torch.cuda.empty_cache()
+
     
