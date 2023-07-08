@@ -39,14 +39,14 @@ class MonotonicLayer(nn.Module):
             output_size=output_size, 
         )
         self.single_var_monotone_pos_g = SingleVarPosMonotonic(
-            output_size=output_size, 
+            output_size=1, 
         )
 
         self.act = act #activation function
 
         self.A = self._get_A(input_size, output_size) #non-neg
         self.B = self._get_B(z0_input_size, output_size) #Don't clamp weight
-        self.G = self._get_G(output_size, output_size) #non-neg
+        self.G = self._get_G(1, output_size) #non-neg
 
 
     def _get_A(self, input_size, output_size):
