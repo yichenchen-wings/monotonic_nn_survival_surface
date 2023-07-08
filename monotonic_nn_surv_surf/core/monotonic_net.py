@@ -46,8 +46,6 @@ class MonotonicLayer(nn.Module):
 
         self.A = self._get_A(input_size, output_size) #non-neg
         self.B = self._get_B(z0_input_size, output_size) #Don't clamp weight
-        self.intera_coeff_t = self._get_intera_coeff_t(input_size, output_size) #non-neg
-        self.intera_coeff_g = self._get_intera_coeff_g(input_size, output_size) #non-neg
 
 
     def _get_A(self, input_size, output_size):
@@ -72,8 +70,6 @@ class MonotonicLayer(nn.Module):
     @torch.no_grad()
     def _clamp_weights(self):
         self.A.weight.data.clamp_(0)
-        self.intera_coeff_t.weight.data.clamp_(0)
-        self.intera_coeff_g.weight.data.clamp_(0)
 
 
     def forward(self, z, z0, t, g):
@@ -86,17 +82,17 @@ class MonotonicLayer(nn.Module):
         self._clamp_weights()
 
         alpha_t = self.single_var_monotone_pos_t(t)
-        gamma_t_vs_g = self.single_var_monotone_pos_g(t/g)
+        t_for_g = self.single_var_monotone_pos_g(t)
+        t_0 = torch.zeros(*t.shape, device=t.device)
+        t_fot_g_t0 = self.single_var_monotone_pos_g(t_0)
+        s_func = torch.nn.Softsign()
+        sigm_t = s_func(t_for_g) - s_func(t_fot_g_t0) # to ensure sigm_t is 0 at t=0
+        gamma_t_vs_g = sigm_t/g
 
         Az = self.A(z)
         Bz0 = self.B(z0)
-
-        make_non_neg = torch.nn.Softplus()
-        z_non_neg = make_non_neg(z)
         
-        interact_t_z = self.intera_coeff_t(t * z_non_neg) 
-        interact_g_z = self.intera_coeff_g(t/g * z_non_neg)
-        z_new = self.act(alpha_t + gamma_t_vs_g + Az + interact_t_z + interact_g_z + Bz0)
+        z_new = self.act(alpha_t + gamma_t_vs_g + Az + Bz0)
 
 
         assert z_new.shape == (z.shape[0], self.output_size)
@@ -126,6 +122,7 @@ class MonotonicNet(nn.Module):
 
 
     def _adjust_towards_zero(self, z, z0, t, g):
+        t0 = torch.zeros(*t.shape, device=t.device)
         z = z - self(t=t-t, g=g, z=z0, survival=False)
         if np.isnan(torch.min(z).item()):
             raise ValueError("Found a nan in one of MonotonicNet's activations.")
