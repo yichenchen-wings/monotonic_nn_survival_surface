@@ -10,7 +10,7 @@ PIP_PATH_IN_USE=$(which pip)
 echo "pip in use: $PIP_PATH_IN_USE"
 if [[ "$PIP_PATH_IN_USE" == *"$ENV_NAME"* ]]
 then
-  pip install -r ./pip_requirements.txt --index-url https://artifactory.owlstone.co.uk/artifactory/api/pypi/pypi-master/simple
+  pip install -r ./pip_requirements.txt
   echo "pip install has been run successfully"
 else
   echo "pip in use does not come from the specified conda environment, pip install aborted"
