@@ -146,3 +146,55 @@ class DatasetFeatANDtgy(Dataset):
     
     def __getitem__(self, index):
         return self.X[index], self.t[index], self.g[index], self.y[index], self.weight[index]
+
+
+class DatasetFeatANDsurf(Dataset):
+    def __init__(self, path_feat_by_subj, path_surf, max_grade, max_time):
+        self.max_grade = max_grade
+        self.max_time = max_time
+
+        self.cols_time = [str(i) for i in range(self.max_time)]
+
+        df_features = pd.read_csv(path_feat_by_subj, index_col=0)
+        assert 'subject' in df_features.columns
+        cols_feats = df_features.columns[df_features.columns != 'subject']
+
+        df_surfs = pd.read_csv(path_surf,  index_col=0)
+       
+        df_X_y_ready = self._get_X_y_ready(df_features=df_features,df_surfs=df_surfs)
+
+        self.observed = df_X_y_ready
+
+        self.observed['weight'] = 1
+
+        self.X = torch.tensor(self.observed[cols_feats].values, dtype=torch.float32)
+        self.t = torch.tensor(self.observed[['t']].values/max_time, dtype=torch.float32)
+        self.g = torch.tensor(self.observed[['g']].values/max_grade, dtype=torch.float32)
+        self.y = torch.tensor(self.observed[['y']].values, dtype=torch.float32)
+        self.weight = torch.tensor(self.observed[['weight']].values, dtype=torch.float32)
+
+    def _get_y(self, df_surfs):
+        df_y = df_surfs.melt(id_vars=['subject','g'], value_vars=self.cols_time, value_name='y', var_name='t')
+        df_y = df_y.loc[df_y['g'] > 0,:]
+        df_y['t'] = df_y['t'].astype(int)
+        return df_y
+    
+    def _get_X_y_ready(self, df_features, df_surfs):
+        assert 'subject' in df_features.columns
+        assert 'subj' in df_surfs.columns
+        df_surfs.rename(columns={'subj':'subject'}, inplace=True)
+
+        df_y = self._get_y(df_surfs)
+
+        df_X_y_ready = df_features.merge(
+            df_y,
+            how='left',
+            on=['subject']
+        )
+        return df_X_y_ready
+    
+    def __len__(self):
+        return len(self.y)
+    
+    def __getitem__(self, index):
+        return self.X[index], self.t[index], self.g[index], self.y[index], self.weight[index]
