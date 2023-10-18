@@ -1,26 +1,26 @@
-from monotonic_nn_surv_surf.core.monotonic_net import MonotonicLayer, SingleVarPosMonotonic, MonotonicNet
+from monotonic_nn_surv_surf.core.monotonic_net import MonotonicLayer, LinearMonotonic, MonotonicNet
 import torch
 import numpy as np
 import pytest
 
-def test_SingleVarPosMonotonic_shape():
+def test_LinearMonotonic_shape():
     batch_size = 5
-    func = SingleVarPosMonotonic(output_size=12)
+    func = LinearMonotonic(in_features=1, out_features=12)
     ts = torch.rand(batch_size, 1)
-    out = func(x=ts)
+    out = func(ts)
     
     assert out.shape == (ts.shape[0], 12)
 
 
-def test_SingleVarPosMonotonic_monotone():
+def test_LinearMonotonic_monotone():
     batch_size = 20
-    func = SingleVarPosMonotonic(output_size=20)
+    func = LinearMonotonic(in_features=1, out_features=20)
     xs = torch.subtract(
         torch.rand(batch_size, 1),
         0.5
     )
     xs.requires_grad = True
-    out = func(x=xs)
+    out = func(xs)
     is_grad_non_neg = []
     for i in out:
         for j in i:
