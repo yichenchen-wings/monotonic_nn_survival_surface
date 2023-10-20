@@ -36,8 +36,8 @@ class DatasetFeatANDtgy(Dataset):
         self.observed['weight'] = self.observed['weight']/self.observed['weight'].sum() * self.observed['weight'].size
 
         self.X = torch.tensor(self.observed[cols_feats].values, dtype=torch.float32)
-        self.t = torch.tensor(self.observed[['t']].values/max_time, dtype=torch.float32)
-        self.g = torch.tensor(self.observed[['g']].values/max_grade, dtype=torch.float32)
+        self.t = torch.tensor(self.observed[['t']].values/self.max_time, dtype=torch.float32)
+        self.g = torch.tensor(self.observed[['g']].values/self.max_grade, dtype=torch.float32)
         self.y = torch.tensor(self.observed[['y']].values, dtype=torch.float32)
         self.weight = torch.tensor(self.observed[['weight']].values, dtype=torch.float32)
         
@@ -168,8 +168,8 @@ class DatasetFeatANDsurf(Dataset):
         self.observed['weight'] = 1
 
         self.X = torch.tensor(self.observed[cols_feats].values, dtype=torch.float32)
-        self.t = torch.tensor(self.observed[['t']].values/max_time, dtype=torch.float32)
-        self.g = torch.tensor(self.observed[['g']].values/max_grade, dtype=torch.float32)
+        self.t = torch.tensor(self.observed[['t']].values/self.max_time, dtype=torch.float32)
+        self.g = torch.tensor(self.observed[['g']].values/self.max_grade, dtype=torch.float32)
         self.y = torch.tensor(self.observed[['y']].values, dtype=torch.float32)
         self.weight = torch.tensor(self.observed[['weight']].values, dtype=torch.float32)
 
