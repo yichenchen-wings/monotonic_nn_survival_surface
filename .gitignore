@@ -1,6 +1,11 @@
 pop_sim_data/data_raw/*
 pop_sim_data/data_runtime/*
+pop_sim_data/data_runtime_surf/*
 pop_sim_data/results_runtime/*
+pop_sim_data/results_runtime_surf/*
+pop_sim_data/results_end/*
+pop_sim_data/results_end_surf/*
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
