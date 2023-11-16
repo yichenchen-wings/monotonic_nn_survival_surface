@@ -6,7 +6,7 @@ import numpy as np
 
 
 class DatasetFeatANDtgy(Dataset):
-    def __init__(self, path_feat_by_subj, path_state_history_max_grade, max_grade, max_time, trans_only):
+    def __init__(self, path_feat_by_subj, path_state_history_max_grade, max_grade, max_time, trans_only, weighted=True):
         self.max_grade = max_grade
         self.max_time = max_time
         self.trans_only = trans_only
@@ -32,8 +32,11 @@ class DatasetFeatANDtgy(Dataset):
             how='left',
             on=balance_by
         )
-        self.observed['weight'] = 1-self.observed['weight']/self.observed['weight'].sum()
-        self.observed['weight'] = self.observed['weight']/self.observed['weight'].sum() * self.observed['weight'].size
+        if weighted:
+            self.observed['weight'] = 1-self.observed['weight']/self.observed['weight'].sum()
+            self.observed['weight'] = self.observed['weight']/self.observed['weight'].sum() * self.observed['weight'].size
+        else:
+            self.observed['weight'] = 1
 
         self.X = torch.tensor(self.observed[cols_feats].values, dtype=torch.float32)
         self.t = torch.tensor(self.observed[['t']].values/self.max_time, dtype=torch.float32)
