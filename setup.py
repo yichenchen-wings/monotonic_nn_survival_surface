@@ -1,8 +1,8 @@
-from distutils.core import setup
+from setuptools import find_packages, setup
 
 setup(
     name='monotonic_nn_surv_surf',
-    version='0.1.0',
+    version='0.3.0',
     author='Yichen Chen',
-    packages=['monotonic_nn_surv_surf'],
+    packages=find_packages(),
 )
