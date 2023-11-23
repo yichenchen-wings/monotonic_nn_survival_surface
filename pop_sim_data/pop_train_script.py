@@ -250,6 +250,9 @@ ds_test = DatasetFeatANDtgy(
     weighted=WEIGHTED
 )
 loader_test = DataLoader(ds_test, batch_size=1000)
+# %%
+loader_train = DataLoader(ds_train, batch_size=1000,shuffle=True)
+loader_train_tune = DataLoader(ds_train, batch_size=500,shuffle=True)
 
 # %%
 len(ds_train_tune)
@@ -281,16 +284,13 @@ from monotonic_nn_surv_surf.utils.surv_surf_latent import SurvSurfLatent, Latent
 
 # %%
 
-def objective(trial):
-
-    early_stop = pl.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE)
-    
+def objective(trial):    
     n_monotone_layers = trial.suggest_int('n_monotone_layers', 4, 16)
     n_monoton_neurons = trial.suggest_int('n_monoton_neurons', 8, 64)
     n_feat_layers = trial.suggest_int('n_feat_layers', 4, 16)
     n_feat_neurons = trial.suggest_int('n_feat_neurons', 8, 64)
     p_dropout = trial.suggest_uniform('p_dropout', 0, 0.5)
-    learning_rate = trial.suggest_loguniform('learning_rate', 1e-4, 1e-1)
+    learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-3)
 
     model = SurvSurfLatent(
         mono_net_sizes=[n_feat_neurons] + [n_monoton_neurons]*n_monotone_layers + [1],
@@ -311,7 +311,6 @@ def objective(trial):
         max_epochs=MAX_EPOCH_TUNE, 
         enable_progress_bar=False,
         check_val_every_n_epoch=1,
-        callbacks = [early_stop]
     )      
     
     trainer.fit(
@@ -415,7 +414,7 @@ if not TUNE:
 # ### actual train
 
 # %%
-early_stop = pl.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE,)
+early_stop = pl.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE)
 trainer = pl.Trainer(
     accelerator="gpu", 
     devices=1, 
