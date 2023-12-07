@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 import torch
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 
 
 class DatasetFeatANDtgy(Dataset):
@@ -22,18 +23,33 @@ class DatasetFeatANDtgy(Dataset):
 
         self.observed = df_X_y_ready
 
-        if self.trans_only:
-            balance_by = ['g','t']
-        else:
-            balance_by = 'trans_ref'
-        weights = self.observed.groupby(balance_by).apply(lambda x: x.shape[0]).rename('weight')
+        # if self.trans_only:
+        #     balance_by = ['g','t']
+        # else:
+        #     balance_by = 'trans_ref'
+
+        balance_by = ['t', 'g']
+        weights = self.observed.groupby(balance_by).apply(
+            lambda x: norm.pdf(x['y'].mean(),loc=0.5, scale=0.5/1.96)
+        ).rename('weight_tg')
+        weights = weights/norm.pdf(0.5,loc=0.5, scale=0.5/1.96) # max = 1
         self.observed = self.observed.merge(
             right=weights.reset_index(),
             how='left',
             on=balance_by
         )
+        balance_by = ['y']
+        weights = self.observed.groupby(balance_by).apply(
+            lambda x: x.shape[0]
+        ).rename('weight_y')
+        weights = (1-weights/weights.sum()) # max = 1
+        self.observed = self.observed.merge(
+            right=weights.reset_index(),
+            how='left',
+            on=balance_by
+        )
+        self.observed['weight'] = self.observed['weight_y'] * self.observed['weight_tg'] 
         if weighted:
-            self.observed['weight'] = 1-self.observed['weight']/self.observed['weight'].sum()
             self.observed['weight'] = self.observed['weight']/self.observed['weight'].sum() * self.observed['weight'].size
         else:
             self.observed['weight'] = 1
