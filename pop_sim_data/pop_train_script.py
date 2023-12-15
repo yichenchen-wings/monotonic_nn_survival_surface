@@ -69,6 +69,13 @@ parser.add_argument(
     default='y',
     help='whether to weight the on-transition coordinates more'
 )
+
+parser.add_argument(
+    '--use_gpu', 
+    type=str,
+    default='n',
+    help='whether or not to use GPU for training'
+)
 args = parser.parse_args()
 
 
@@ -108,6 +115,7 @@ MAX_EPOCH_TUNE = args.n_epochs_tune
 MAX_EPOCH_TRAIN = args.n_epochs_train
 PATIENCE = args.patience
 WEIGHTED = True if args.weighted == 'y' else False
+USE_GPU = True if args.use_gpu == 'y' else False
 print(args._get_kwargs())
 
 torch.set_float32_matmul_precision('medium')
@@ -267,8 +275,10 @@ len(ds_val)
 # ## Train model
 
 # %%
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device
+if USE_GPU:
+    device = 'gpu'
+else:
+    device = 'cpu'
 
 # %%
 import pytorch_lightning as pl
@@ -307,7 +317,7 @@ def objective(trial):
     trainer = pl.Trainer(
         default_root_dir=DIR_RUNTIME_RESULTS,
         logger=False, 
-        accelerator="gpu", 
+        accelerator=device, 
         max_epochs=MAX_EPOCH_TUNE, 
         enable_progress_bar=False,
         check_val_every_n_epoch=1,
@@ -388,7 +398,7 @@ logger = pl.loggers.CSVLogger(save_dir=DIR_RUNTIME_RESULTS)
 if not TUNE:
     if TUNE_LR:
         trainer = pl.Trainer(
-                accelerator="gpu", 
+                accelerator=device, 
                 default_root_dir=DIR_RUNTIME_RESULTS,
                 enable_progress_bar=False,
                 logger=logger
@@ -415,15 +425,16 @@ if not TUNE:
 
 # %%
 early_stop = pl.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE)
+chkpt_min_val_loss = pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1)
+
 trainer = pl.Trainer(
-    accelerator="gpu", 
-    devices=1, 
+    accelerator=device, 
     max_epochs=MAX_EPOCH_TRAIN, 
     logger=logger,
     enable_progress_bar=False,
     default_root_dir=DIR_RUNTIME_RESULTS,
     check_val_every_n_epoch=1,
-    callbacks=[early_stop]
+    callbacks=[early_stop, chkpt_min_val_loss]
 )
 trainer.fit(
     model=model_lit, 

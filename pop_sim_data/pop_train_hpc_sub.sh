@@ -10,12 +10,22 @@
 #SBATCH --mail-type=ALL 
 #SBATCH --array=1
 
-module load rhel8/default-amp  
-source activate env_notebook_train_test_survsurf
+## Comment out the block below for local run
+# module load rhel8/default-amp  
+# source activate env_notebook_train_test_survsurf
 
-INPUT_DIR='/home/yc366/rds/hpc-work/data_markov_one_surf_each/'
-RUNTIME_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TASK_ID}_runtime/"
-OUTPUT_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TASK_ID}_results/"
+
+## Uncomment and edit the block below for hpc run
+# INPUT_DIR='/home/yc366/rds/hpc-work/data_markov_one_surf_each/'
+# RUNTIME_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TASK_ID}_runtime/"
+# OUTPUT_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TASK_ID}_results/"
+
+## Uncomment and edit the block below for local run
+INPUT_DIR="/home/yc366/repos/monotonic_nn_survival_surface/pop_sim_data/data_raw/"
+RUNTIME_DIR="/home/yc366/repos/monotonic_nn_survival_surface/pop_sim_data/data_runtime/"
+OUTPUT_DIR="/home/yc366/repos/monotonic_nn_survival_surface/pop_sim_data/results_runtime/"
+
+USE_GPU=n
 TUNE=y
 TUNE_LR=n
 N_TRIALS_TUNE=64
@@ -35,6 +45,7 @@ python ./pop_train_script.py  \
 --n_epochs_tune $N_EPOCHS_TUNE \
 --n_epochs_train $N_EPOCHS_TRAIN \
 --patience $PATIENCE \
---weighted $WEIGHTED
+--weighted $WEIGHTED \
+--use_gpu $USE_GPU
 
 echo "Finished array: $SLURM_JOB_NAME $SLURM_ARRAY_TASK_ID"
