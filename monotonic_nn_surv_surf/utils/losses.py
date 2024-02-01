@@ -47,6 +47,25 @@ class LossDyAcrossGResol:
         losses = -torch.mean(weights*losses)
         return losses
 
+class BCEDyAcrossGResol:
+    def __init__(self, g_resol):
+        self.g_resol = g_resol
+    def __call__(self, model, ts, gs, xs, ys, weights):
+        model.eval()
+        outputs = model(ts=ts, gs=gs, xs=xs)
+        outputs_bigger_g = model(ts=ts, gs=gs+self.g_resol, xs=xs)
+        dy = outputs_bigger_g - outputs #lager in magnitude the better if y = 1
+        assert torch.all(1e-2 > dy), f"{torch.max(dy)}"
+        dy = torch.clamp(dy, -np.inf, 0)
+        epsilon = 1e-6
+        losses = (
+            ys*(torch.log(outputs + epsilon) + torch.log(1-outputs_bigger_g + epsilon))# considered only if observed g_obs > 0 at t
+            + (1-ys)*torch.log(1-outputs + epsilon) # considered only if observed g_obs == 0 at t
+        ) 
+        
+        losses = -torch.mean(weights*losses)
+        return losses
+
 def loss_bce(model, ts, gs, xs, ys, weights):
     outputs = model(ts=ts, gs=gs, xs=xs)
     loss_fn = torch.nn.functional.binary_cross_entropy

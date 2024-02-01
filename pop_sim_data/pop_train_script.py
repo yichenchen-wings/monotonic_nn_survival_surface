@@ -275,7 +275,7 @@ len(ds_val)
 # ## Train model
 from monotonic_nn_surv_surf.utils import losses
 if TRANS_ONLY:
-    loss_fn = losses.LossDyAcrossGResol(g_resol=ds_train.resol_g)
+    loss_fn = losses.BCEDyAcrossGResol(g_resol=ds_train.resol_g)
 else:
     loss_fn = losses.loss_bce
 # %%

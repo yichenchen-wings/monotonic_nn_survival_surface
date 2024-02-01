@@ -109,14 +109,6 @@ class DatasetFeatANDtgy(Dataset):
                         'g_max':g_max_subj
                     }
                 )
-                rows.append(
-                    {
-                        't':t,
-                        'g':g+self.resol_g,
-                        'y':0, 
-                        'g_max':g_max_subj
-                    }
-                )
             else:
                 rows.append(
                     {
