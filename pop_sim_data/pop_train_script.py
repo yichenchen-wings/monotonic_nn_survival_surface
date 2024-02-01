@@ -22,6 +22,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    '--trans_only', 
+    type=str,
+    default='y',
+    help='whether to use only the observed trajectory or pand it out into a surface for training'
+)
+
+parser.add_argument(
     '--tune', 
     type=str,
     default='n',
@@ -29,17 +36,17 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '--tunelr', 
-    type=str,
-    default='n',
-    help='whether to tune the learning rate, default to False, only applicable when --tune False'
-)
-
-parser.add_argument(
     '--n_trials_tune', 
     type=int,
     default=128,
     help='number of trials to run'
+)
+
+parser.add_argument(
+    '--batch_size', 
+    type=int,
+    default=50,
+    help='batch size'
 )
 
 parser.add_argument(
@@ -76,6 +83,13 @@ parser.add_argument(
     default='n',
     help='whether or not to use GPU for training'
 )
+
+parser.add_argument(
+    '--model_init_seed_train', 
+    type=int,
+    default=40,
+    help='Seed for model initiation, called by pytorch.seed_everything before training (after tuning)'
+)
 args = parser.parse_args()
 
 
@@ -107,15 +121,17 @@ with torch.no_grad():
 DIR_INPUTS = args.inputdir
 DIR_RUNTIME_DATA = args.runtimedir
 DIR_RUNTIME_RESULTS = args.outputdir
+TRANS_ONLY= True if args.trans_only == 'y' else False
+
 TUNE = True if args.tune == 'y' else False
-TRANS_ONLY=False
-TUNE_LR = True if args.tunelr == 'y' else False# only effective if TUNE is False
 N_TRIALS_TUNE = args.n_trials_tune #100
+BATCH_SIZE = args.batch_size
 MAX_EPOCH_TUNE = args.n_epochs_tune
 MAX_EPOCH_TRAIN = args.n_epochs_train
 PATIENCE = args.patience
 WEIGHTED = True if args.weighted == 'y' else False
 USE_GPU = True if args.use_gpu == 'y' else False
+SEED_TRAINING_MODEL_INIT = args.model_init_seed_train
 print(args._get_kwargs())
 
 torch.set_float32_matmul_precision('medium')
@@ -227,17 +243,6 @@ ds_train = DatasetFeatANDtgy(
     trans_only=TRANS_ONLY,
     weighted=WEIGHTED
 )
-loader_train = DataLoader(ds_train, batch_size=1000,shuffle=True)
-
-ds_train_tune = DatasetFeatANDtgy(
-    path_feat_by_subj=os.path.join(DIR_RUNTIME_DATA,'df_features_train_tune.csv'),
-    path_state_history_max_grade=os.path.join(DIR_RUNTIME_DATA,'df_state_history_sampled_max_train_tune.csv'),
-    max_grade=MAX_STATES, 
-    max_time=N_TIME,
-    trans_only=TRANS_ONLY,
-    weighted=WEIGHTED
-)
-loader_train_tune = DataLoader(ds_train, batch_size=500,shuffle=True)
 
 ds_val = DatasetFeatANDtgy(
     path_feat_by_subj=os.path.join(DIR_RUNTIME_DATA,'df_features_val.csv'),
@@ -258,12 +263,6 @@ ds_test = DatasetFeatANDtgy(
     weighted=WEIGHTED
 )
 loader_test = DataLoader(ds_test, batch_size=1000)
-# %%
-loader_train = DataLoader(ds_train, batch_size=1000,shuffle=True)
-loader_train_tune = DataLoader(ds_train, batch_size=500,shuffle=True)
-
-# %%
-len(ds_train_tune)
 
 # %%
 len(ds_train)
@@ -273,7 +272,11 @@ len(ds_val)
 
 # %% [markdown]
 # ## Train model
-
+from monotonic_nn_surv_surf.utils import losses
+if TRANS_ONLY:
+    loss_fn = losses.LossDyAcrossGResol(g_resol=ds_train.resol_g)
+else:
+    loss_fn = losses.loss_bce
 # %%
 if USE_GPU:
     device = 'gpu'
@@ -283,72 +286,68 @@ else:
 # %%
 import pytorch_lightning as pl
 
-pl.seed_everything(seed=20)
-
 # %%
 from monotonic_nn_surv_surf.utils.pl_model_wrapper import LitSurvSurf
 from monotonic_nn_surv_surf.utils.surv_surf_latent import SurvSurfLatent, LatentFeatFC
 
-# %% [markdown]
-# #### Hyperparam
-
 # %%
-
-def objective(trial):    
-    n_monotone_layers = trial.suggest_int('n_monotone_layers', 4, 16)
-    n_monoton_neurons = trial.suggest_int('n_monoton_neurons', 8, 64)
-    n_feat_layers = trial.suggest_int('n_feat_layers', 4, 16)
-    n_feat_neurons = trial.suggest_int('n_feat_neurons', 8, 64)
-    p_dropout = trial.suggest_uniform('p_dropout', 0, 0.5)
-    learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-3)
-
-    model = SurvSurfLatent(
-        mono_net_sizes=[n_feat_neurons] + [n_monoton_neurons]*n_monotone_layers + [1],
-        latent_feat_transformer=LatentFeatFC(
-            input_size=3, 
-            output_size=n_feat_neurons, 
-            neurons_per_layer=(n_feat_layers-1)*[n_feat_neurons],
-            dropout_p=p_dropout
-        ),
-    )
-    
-    model_lit = LitSurvSurf(model=model, lr=learning_rate)
-     
-    trainer = pl.Trainer(
-        default_root_dir=DIR_RUNTIME_RESULTS,
-        logger=False, 
-        accelerator=device, 
-        max_epochs=MAX_EPOCH_TUNE, 
-        enable_progress_bar=False,
-        check_val_every_n_epoch=1,
-    )      
-    
-    trainer.fit(
-        model=model_lit, 
-        train_dataloaders=loader_train_tune ,
-        val_dataloaders=loader_val
-    )
-    
-    score_val = trainer.test(model_lit, loader_val)[0]['test_loss']
-    
-    return score_val
-
-
-# %%
-import optuna
+import json
 if TUNE:
+    seed_tune = 40
+    print(f'Tuning by seeding everything with {seed_tune}')
+    import optuna
+    pl.seed_everything(seed=seed_tune)
+    loader_train = DataLoader(ds_train, batch_size=BATCH_SIZE,shuffle=True)
+    loader_train_tune = DataLoader(ds_train, batch_size=BATCH_SIZE,shuffle=True)
+
+    def objective(trial):    
+        n_monotone_layers = trial.suggest_int('n_monotone_layers', 4, 16)
+        n_monoton_neurons = trial.suggest_int('n_monoton_neurons', 8, 64)
+        n_feat_layers = trial.suggest_int('n_feat_layers', 4, 16)
+        n_feat_neurons = trial.suggest_int('n_feat_neurons', 8, 64)
+        p_dropout = trial.suggest_uniform('p_dropout', 0, 0.5)
+        learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-3)
+
+        model = SurvSurfLatent(
+            mono_net_sizes=[n_feat_neurons] + [n_monoton_neurons]*n_monotone_layers + [1],
+            latent_feat_transformer=LatentFeatFC(
+                input_size=3, 
+                output_size=n_feat_neurons, 
+                neurons_per_layer=(n_feat_layers-1)*[n_feat_neurons],
+                dropout_p=p_dropout
+            ),
+        )
+        
+        model_lit = LitSurvSurf(model=model, loss_fn=loss_fn, lr=learning_rate)
+        
+        trainer = pl.Trainer(
+            default_root_dir=DIR_RUNTIME_RESULTS,
+            logger=False, 
+            accelerator=device, 
+            max_epochs=MAX_EPOCH_TUNE, 
+            enable_progress_bar=False,
+            check_val_every_n_epoch=1,
+            inference_mode=False
+        )      
+        
+        trainer.fit(
+            model=model_lit, 
+            train_dataloaders=loader_train_tune ,
+            val_dataloaders=loader_val
+        )
+        
+        score_val = trainer.test(model_lit, loader_val)[0]['test_loss']
+        
+        return score_val
+
+    # Tune hyperparams
     sampler = optuna.samplers.TPESampler(seed=17)
 
     study = optuna.create_study(direction='minimize', sampler=sampler)
     study.optimize(objective, n_trials=N_TRIALS_TUNE)
 
-# %% [markdown]
-# ### read best hyperparams and tune lr if necessary
-
-# %%
-import json
-
-if TUNE:
+    # Save the best hyperparams
+    
     print('best hyperparam and tuning performance:')
     print(study.best_trial.value)
 
@@ -361,141 +360,116 @@ if TUNE:
     # Writing to sample.json
     with open(os.path.join(DIR_RUNTIME_RESULTS,"best_hyper_params.json"), "w") as outfile:
         outfile.write(json_object)
-else:
-    # Opening JSON file
+
+else:   # ### If not in 'tune' mode, train the model with pre-defined or pre-tuned hyperparams instead
+    # Opening JSON file storing the hyperparams
     with open(os.path.join(DIR_RUNTIME_RESULTS,"best_hyper_params.json"), 'r') as openfile:
     
         # Reading from json file
         best_hyper_params = json.load(openfile)
 
-n_feat_neurons = best_hyper_params['n_feat_neurons']
-n_monoton_neurons = best_hyper_params['n_monoton_neurons']
-n_monotone_layers = best_hyper_params['n_monotone_layers']
-n_feat_layers = best_hyper_params['n_feat_layers']
-p_dropout = best_hyper_params['p_dropout']
-learning_rate = best_hyper_params['learning_rate']
+    n_feat_neurons = best_hyper_params['n_feat_neurons']
+    n_monoton_neurons = best_hyper_params['n_monoton_neurons']
+    n_monotone_layers = best_hyper_params['n_monotone_layers']
+    n_feat_layers = best_hyper_params['n_feat_layers']
+    p_dropout = best_hyper_params['p_dropout']
+    learning_rate = best_hyper_params['learning_rate']
 
+    print(f'training by seeding everything with {SEED_TRAINING_MODEL_INIT}')
 
-# %%
-best_hyper_params
+    pl.seed_everything(seed=SEED_TRAINING_MODEL_INIT)
+    loader_train = DataLoader(ds_train, batch_size=BATCH_SIZE,shuffle=True)
+    loader_train_tune = DataLoader(ds_train, batch_size=BATCH_SIZE,shuffle=True)
 
-# %%
-model = SurvSurfLatent(
-    mono_net_sizes=[n_feat_neurons] + [n_monoton_neurons]*n_monotone_layers + [1],
-    latent_feat_transformer=LatentFeatFC(
-        input_size=3, 
-        output_size=n_feat_neurons, 
-        neurons_per_layer=(n_feat_layers-1)*[n_feat_neurons],
-        dropout_p=p_dropout
-    ),
-)
+    model = SurvSurfLatent(
+        mono_net_sizes=[n_feat_neurons] + [n_monoton_neurons]*n_monotone_layers + [1],
+        latent_feat_transformer=LatentFeatFC(
+            input_size=3, 
+            output_size=n_feat_neurons, 
+            neurons_per_layer=(n_feat_layers-1)*[n_feat_neurons],
+            dropout_p=p_dropout
+        ),
+    )
 
-model_lit = LitSurvSurf(model=model, lr=learning_rate, print_epoch=True)
+    model_lit = LitSurvSurf(model=model, loss_fn=loss_fn, lr=learning_rate, print_epoch=True)
 
-# %%
-logger = pl.loggers.CSVLogger(save_dir=DIR_RUNTIME_RESULTS)
+    # %%
+    logger = pl.loggers.CSVLogger(save_dir=DIR_RUNTIME_RESULTS)
 
-if not TUNE:
-    if TUNE_LR:
-        trainer = pl.Trainer(
-                accelerator=device, 
-                default_root_dir=DIR_RUNTIME_RESULTS,
-                enable_progress_bar=False,
-                logger=logger
-            )
-        tuner = pl.tuner.Tuner(trainer)
+    # %%
+    early_stop = pl.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE)
+    chkpt_min_val_loss = pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1)
 
-        # 3. Tune learning rate
-        lr_finder = tuner.lr_find(
-                model_lit, 
-                train_dataloaders=loader_train,
-                val_dataloaders=loader_val,
-        )
+    trainer = pl.Trainer(
+        accelerator=device, 
+        max_epochs=MAX_EPOCH_TRAIN, 
+        logger=logger,
+        enable_progress_bar=False,
+        default_root_dir=DIR_RUNTIME_RESULTS,
+        check_val_every_n_epoch=1,
+        callbacks=[early_stop, chkpt_min_val_loss],
+        inference_mode=False
+    )
+    trainer.fit(
+        model=model_lit, 
+        train_dataloaders=loader_train ,
+        val_dataloaders=loader_val
+    )
 
-        fig = lr_finder.plot(suggest=True)
-        fig.show()
-        new_lr = lr_finder.suggestion()
+    # %% [markdown]
+    # ## Inspect learning curve
 
-        # update hparams of the model
-        model_lit.hparams.lr = new_lr
-        print(f'found suggested lr at {new_lr}')
+    # %%
+    dir_logs = os.path.join(DIR_RUNTIME_RESULTS, 'lightning_logs')
 
-# %% [markdown]
-# ### actual train
+    # %%
+    latest_ver = sorted(os.listdir(dir_logs), key=lambda x: int(x.split('_')[-1]))[-1]
+    checkpoint_path = [i for i in os.listdir(os.path.join(dir_logs, f'{latest_ver}/checkpoints')) if i.endswith('ckpt')][-1]
+    checkpoint_path = os.path.join(dir_logs, f'{latest_ver}/checkpoints/{checkpoint_path}')
+    model_lit_loaded = model_lit.load_from_checkpoint(checkpoint_path)    
 
-# %%
-early_stop = pl.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE)
-chkpt_min_val_loss = pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1)
+    # %%
+    trainer.test(model=model_lit_loaded, dataloaders=loader_train)
 
-trainer = pl.Trainer(
-    accelerator=device, 
-    max_epochs=MAX_EPOCH_TRAIN, 
-    logger=logger,
-    enable_progress_bar=False,
-    default_root_dir=DIR_RUNTIME_RESULTS,
-    check_val_every_n_epoch=1,
-    callbacks=[early_stop, chkpt_min_val_loss]
-)
-trainer.fit(
-    model=model_lit, 
-    train_dataloaders=loader_train ,
-    val_dataloaders=loader_val
-)
+    # %%
+    trainer.test(model=model_lit_loaded, dataloaders=loader_val)
 
-# %%
-trainer.test(model=model_lit, dataloaders=loader_train)
+    # %%
+    trainer.test(model=model_lit_loaded, dataloaders=loader_test)
 
-# %%
-trainer.test(model=model_lit, dataloaders=loader_val)
+    # %%
+    epoch_metrics = pd.read_csv(os.path.join(dir_logs, f'{latest_ver}/metrics.csv'))
 
-# %%
-trainer.test(model=model_lit, dataloaders=loader_test)
+    # %%
+    epoch_metrics = epoch_metrics.groupby('epoch').apply(
+        lambda df: 
+        pd.Series(
+            [
+                df['val_loss'].iloc[0],
+                df['train_loss'].iloc[-1]
+            ],
+            index=['val_loss','train_loss']
+        ), 
+    ).reset_index()
 
-# %% [markdown]
-# ## Inspect learning curve
+    # %%
+    epoch_metrics['val_loss'].min()
 
-# %%
-dir_logs = os.path.join(DIR_RUNTIME_RESULTS, 'lightning_logs')
-dir_logs
-
-# %%
-latest_ver = sorted(os.listdir(dir_logs))[-1]
-latest_ver
-
-# %%
-epoch_metrics = pd.read_csv(os.path.join(dir_logs, f'{latest_ver}/metrics.csv'))
-epoch_metrics.head(20)
-
-# %%
-epoch_metrics = epoch_metrics.groupby('epoch').apply(
-    lambda df: 
-    pd.Series(
-        [
-            df['val_loss'].iloc[0],
-            df['train_loss'].iloc[-1]
-        ],
-        index=['val_loss','train_loss']
-    ), 
-).reset_index()
-
-# %%
-epoch_metrics['val_loss'].min()
-
-# %%
-fig, ax = plt.subplots(1,1)
-ax.plot(
-    epoch_metrics['epoch'],
-    epoch_metrics['train_loss'],
-    label='train_loss'
-)
-ax.plot(
-    epoch_metrics['epoch'],
-    epoch_metrics['val_loss'],
-    label='val_loss'
-)
-ax.set(xlabel='epochs', ylabel='loss')
-ax.legend()
-fig.savefig(os.path.join(DIR_RUNTIME_RESULTS,'./learning_curve.pdf'))
+    # %%
+    fig, ax = plt.subplots(1,1)
+    ax.plot(
+        epoch_metrics['epoch'],
+        epoch_metrics['train_loss'],
+        label='train_loss'
+    )
+    ax.plot(
+        epoch_metrics['epoch'],
+        epoch_metrics['val_loss'],
+        label='val_loss'
+    )
+    ax.set(xlabel='epochs', ylabel='loss')
+    ax.legend()
+    fig.savefig(os.path.join(dir_logs, f'{latest_ver}/learning_curve.pdf'))
 
 
 # %%
@@ -510,6 +484,10 @@ min_in_s = minutes*60
 seconds = time_taken_s - hr_in_s - min_in_s
 
 print('='*10 + 'END' + '='*10)
-print(f'Time taken to run full script: {str(hr).zfill(2)}:{str(minutes).zfill(2)}:{str(seconds).zfill(2)}')
+if TUNE:
+    script_str = 'hyperparam-tuning'
+else:
+    script_str = 'training'
+print(f'Time taken to run {script_str} script: {str(hr).zfill(2)}:{str(minutes).zfill(2)}:{str(seconds).zfill(2)}')
 
 
