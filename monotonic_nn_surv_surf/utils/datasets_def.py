@@ -6,10 +6,11 @@ import numpy as np
 
 
 class DatasetFeatANDtgy(Dataset):
-    def __init__(self, path_feat_by_subj, path_state_history_max_grade, max_grade, max_time, trans_only, weighted=True):
+    def __init__(self, path_feat_by_subj, path_state_history_max_grade, max_grade, max_time, trans_only, resol_g=0.5, weighted=True):
         self.max_grade = max_grade
         self.max_time = max_time
         self.trans_only = trans_only
+        self.resol_g = resol_g
 
 
         df_features = pd.read_csv(path_feat_by_subj, index_col=0)
@@ -17,13 +18,18 @@ class DatasetFeatANDtgy(Dataset):
         cols_feats = df_features.columns[df_features.columns != 'subject']
 
         df_state_history_max_grade = pd.read_csv(path_state_history_max_grade,  index_col=0)
-       
+        self.min_g = df_state_history_max_grade.loc[
+            df_state_history_max_grade['state_max_by_time'] > 0,
+            'state_max_by_time'
+        ].min()
         df_X_y_ready = self._get_X_y_ready(df_features=df_features,df_state_history_max_grade=df_state_history_max_grade)
 
         self.observed = df_X_y_ready
 
+        assert all(self.observed['t'] >= 0)
+        assert all(self.observed['g'] > 0)
         if self.trans_only:
-            balance_by = ['g','t']
+            balance_by = ['g_max']
         else:
             balance_by = 'trans_ref'
         weights = self.observed.groupby(balance_by).apply(lambda x: x.shape[0]).rename('weight')
@@ -33,7 +39,7 @@ class DatasetFeatANDtgy(Dataset):
             on=balance_by
         )
         if weighted:
-            self.observed['weight'] = 1-self.observed['weight']/self.observed['weight'].sum()
+            self.observed['weight'] = 1/(self.observed['weight']/self.observed['weight'].sum())
             self.observed['weight'] = self.observed['weight']/self.observed['weight'].sum() * self.observed['weight'].size
         else:
             self.observed['weight'] = 1
@@ -87,37 +93,39 @@ class DatasetFeatANDtgy(Dataset):
         df_sorted = df_subj_max_grade_traj.sort_values('time')
         ts_raw = df_sorted['time'].values
         gs_raw = df_sorted['state_max_by_time'].values
-
-        if ts_raw[0] != 0:
-            ts_raw = np.r_[[0], ts_raw] 
-            gs_raw = np.r_[[0], gs_raw]
+        g_max_subj = max(gs_raw)
 
         traj = pd.Series(gs_raw, index=ts_raw)
 
+
         rows = []
-        for t in traj.index:
-            g_obs = traj[t]
-            for g in [g_obs, g_obs+1]:
-                if (g == 0) or (g > self.max_grade):
-                    continue
-                if g > g_obs:
-                    rows.append(
-                        {
-                            't':t,
-                            'g':g,
-                            'y':0,
-                            'trans_ref':'not_possible'
-                        }
-                    )
-                else:
-                    rows.append(
-                        {
-                            't':t,
-                            'g':g,
-                            'y':1,
-                            'trans_ref':'happened'
-                        }
-                    )
+        for t,g in traj.items():
+            if g > 0:
+                rows.append(
+                    {
+                        't':t,
+                        'g':g,
+                        'y':1, 
+                        'g_max':g_max_subj
+                    }
+                )
+                rows.append(
+                    {
+                        't':t,
+                        'g':g+self.resol_g,
+                        'y':0, 
+                        'g_max':g_max_subj
+                    }
+                )
+            else:
+                rows.append(
+                    {
+                        't':t,
+                        'g':self.resol_g,
+                        'y':0, 
+                        'g_max':g_max_subj
+                    }
+                )
         return pd.DataFrame(rows)
     
     def _get_y(self, df_X_y):

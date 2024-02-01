@@ -18,7 +18,7 @@ class ElemwiseMult1D(nn.Module):
         self.reset_parameters()
     
     def reset_parameters(self) -> None:
-        nn.init.trunc_normal_(self.weight, mean=0.0, std=1.0, a=0, b=2.0)
+        nn.init.normal_(self.weight)
 
     def forward(self, x):
         weight_sqr = torch.square(self.weight)
@@ -46,18 +46,25 @@ class MonotonicLayer(nn.Module):
         )
 
         self.act = act #activation function
+        self.pos_fn = torch.nn.Softplus()
 
         self.A = self._get_A(input_size, output_size) #non-neg
-        self.B = self._get_B(z0_input_size, output_size) #Don't clamp weight
+        self.A_intera_g = self._get_A_intera(input_size, output_size) #non-neg
+        self.A_intera_t = self._get_A_intera(input_size, output_size) #non-neg
+        self.B = self._get_B(z0_input_size, output_size) #whatever sign
         self.G = self._get_G(output_size) #non-neg
         
 
     def _get_A(self, input_size, output_size):
         A = LinearMonotonic(input_size, output_size, bias=False) # just scale
         return A
+    
+    def _get_A_intera(self, input_size, output_size):
+        A_intera = LinearMonotonic(input_size, output_size, bias=False) #just scale
+        return A_intera
 
     def _get_B(self, input_size, output_size):
-        B = LinearMonotonic(input_size, output_size, bias=False) # just scale
+        B = nn.Linear(input_size, output_size, bias=True) #scale and add bias
         return B
 
     def _get_G(self, output_size):
@@ -75,16 +82,18 @@ class MonotonicLayer(nn.Module):
 
         t_for_g = self.single_var_monotone_pos_g(t)
         t_0 = torch.zeros(t.shape[0], 1, device=t.device)
-        t_fot_g_t0 = self.single_var_monotone_pos_g(t_0)
+        t_for_g_t0 = self.single_var_monotone_pos_g(t_0)
         s_func = torch.nn.Softsign()
-        sigm_t = s_func(t_for_g) - s_func(t_fot_g_t0) # to ensure sigm_t is 0 at t=0
+        sigm_t = s_func(t_for_g) - s_func(t_for_g_t0) # to ensure sigm_t is 0 at t=0
         t_vs_g = sigm_t/g
         G_gamma_t_vs_g = self.G(t_vs_g)
 
         Az = self.A(z)
+        Az_for_t = self.pos_fn(self.A_intera_t(z))
+        Az_for_g = self.pos_fn(self.A_intera_g(z))
         Bz0 = self.B(z0)
         
-        z_new = self.act(alpha_t + G_gamma_t_vs_g + Az + Bz0)
+        z_new = self.act(Az_for_t*t + alpha_t + Az_for_g*t_vs_g + G_gamma_t_vs_g + Az + Bz0)
 
 
         assert z_new.shape == (z.shape[0], self.output_size)
@@ -114,13 +123,15 @@ class MonotonicNet(nn.Module):
 
 
     def _adjust_towards_zero(self, z, z0, t, g):
-        z = z - self(t=t-t, g=g, z=z0, survival=False)
-        if np.isnan(torch.min(z).item()):
+        t0 = torch.zeros(*t.shape, device=t.device)
+        z_t0 = self(t=t0, g=g, z=z0, survival=False)
+        z_adj = z - z_t0
+        if np.isnan(torch.min(z_adj).item()):
             raise ValueError("Found a nan in one of MonotonicNet's activations.")
-        assert torch.all(-1e-2 < z), f"{torch.min(z)}"
-        z = torch.clamp(z, 0, np.inf)
+        assert torch.all(-1e-2 < z_adj), f"{torch.min(z_adj)}"
+        z_adj = torch.clamp(z_adj, 0, np.inf)
         
-        return z
+        return z_adj
 
 
     def forward(self, t, g, z=None, survival=True):

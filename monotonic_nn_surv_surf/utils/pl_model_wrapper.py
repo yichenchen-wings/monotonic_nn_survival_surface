@@ -2,18 +2,13 @@
 import pytorch_lightning as pl
 import torch
 
-def prob_mult_loss(output, target, weight):
-    losses = -weight*(output*target + (1-output)*(1-target))
-    return torch.mean(losses)
-
 class LitSurvSurf(pl.LightningModule):
-    def __init__(self, model, lr=0.001, print_epoch=False):
+    def __init__(self, model, loss_fn, lr=0.001, print_epoch=False):
         super().__init__()
         self.save_hyperparameters()
         self.model = model
-        # self.loss_fn = prob_mult_loss
-        self.loss_fn = torch.nn.functional.binary_cross_entropy
         self.lr = lr
+        self.loss_fn = loss_fn
         self.training_step_outputs = []
         self.validation_step_outputs = []
         self.epochs_run = 0
@@ -21,12 +16,9 @@ class LitSurvSurf(pl.LightningModule):
     
     def training_step(self, batch, batch_idx): #batch_idx is a compulsory argument
         xs, ts, gs, ys, weights = batch
-
-        # Make predictions for this batch
-        outputs = self.model(ts=ts, gs=gs, xs=xs)
-
+        
         # Compute the loss and its gradients
-        loss = self.loss_fn(outputs, ys, weight=weights)
+        loss = self.loss_fn(self.model, ts, gs, xs, ys, weights)
 
         eval_res = dict()
         eval_res['loss'] = loss
@@ -41,20 +33,18 @@ class LitSurvSurf(pl.LightningModule):
     def test_step(self, batch, batch_idx): #batch_idx is a compulsory argument
         # this is the test loop
         xs, ts, gs, ys, weights = batch
-        outputs = self.model(ts=ts, gs=gs, xs=xs)
-        test_loss = self.loss_fn(outputs, ys, weight=weights)
-        self.log("test_loss", test_loss, on_step=False, on_epoch=True)
-        return {'loss':test_loss}
+        loss = self.loss_fn(self.model, ts, gs, xs, ys, weights)
+        self.log("test_loss", loss, on_step=False, on_epoch=True)
+        return {'loss':loss}
         
 
     def validation_step(self, batch, batch_idx): #batch_idx is a compulsory argument:
         # this is the validation loop
         xs, ts, gs, ys, weights = batch
-        outputs = self.model(ts=ts, gs=gs, xs=xs)
-        val_loss = self.loss_fn(outputs, ys, weight=weights)
+        loss = self.loss_fn(self.model, ts, gs, xs, ys, weights)
         
         eval_res = dict()
-        eval_res['loss'] = val_loss
+        eval_res['loss'] = loss
         self.validation_step_outputs.append(eval_res)
 
     def on_train_epoch_end(self):
