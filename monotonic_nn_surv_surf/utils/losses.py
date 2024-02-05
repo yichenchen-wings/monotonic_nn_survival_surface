@@ -40,8 +40,8 @@ class LossDyAcrossGResol:
         dy = torch.clamp(dy, -np.inf, 0)
         epsilon = 1e-6
         losses = (
-            + ys*torch.log(-dy + epsilon) # if observed g (g > 0) at t, then dy/dg (i.e. prob of g occurring by or at t) for (t,g,x) should be high.
-            + (1-ys)*torch.log(1-outputs + epsilon)
+            ys*(torch.log(-dy + epsilon) + torch.log(1-outputs_bigger_g + epsilon))# considered only if observed g_obs > 0 at t
+            + (1-ys)*torch.log(1-outputs + epsilon) # considered only if observed g_obs == 0 at t
         ) 
         
         losses = -torch.mean(weights*losses)
