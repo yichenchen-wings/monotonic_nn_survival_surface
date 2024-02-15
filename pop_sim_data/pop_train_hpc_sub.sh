@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH -J paired_g_inside_dy_loss_wbias
-#SBATCH --output=/home/yc366/rds/hpc-work/hpc_out/paired_g_inside_dy_loss_wbias/%a.out
-#SBATCH --error=/home/yc366/rds/hpc-work/hpc_out/paired_g_inside_dy_loss_wbias/%a.err
+#SBATCH -J paired_g_indep_dy_no_intera_loss_biasless
+#SBATCH --output=/home/yc366/rds/hpc-work/hpc_out/paired_g_indep_dy_no_intera_loss_biasless/%a.out
+#SBATCH --error=/home/yc366/rds/hpc-work/hpc_out/paired_g_indep_dy_no_intera_loss_biasless/%a.err
 #SBATCH -A SCHONLIEB-SL3-CPU
 #SBATCH -p icelake
 #SBATCH --nodes 1
-#SBATCH --time=12:00:00
+#SBATCH --time=1:00:00
 #SBATCH --mail-type=ALL 
 #SBATCH --array=1
 
@@ -15,7 +15,7 @@ module load rhel8/default-icl
 source activate env_notebook_train_test_survsurf
 
 ## Uncomment and edit the block below for hpc run
-INPUT_DIR='/home/yc366/rds/hpc-work/data_markov_one_surf_each_wbias/'
+INPUT_DIR='/home/yc366/rds/hpc-work/data_markov_one_surf_each/'
 RUNTIME_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TASK_ID}_data_runtime/"
 OUTPUT_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TASK_ID}_train_results/"
 
@@ -26,12 +26,12 @@ OUTPUT_DIR="/home/yc366/rds/hpc-work/hpc_out/${SLURM_JOB_NAME}/${SLURM_ARRAY_TAS
 
 USE_GPU=n
 TRANS_ONLY=y
-TUNE=n
+TUNE=y
 N_TRIALS_TUNE=32
 BATCH_SIZE=100
 N_EPOCHS_TUNE=200
-N_EPOCHS_TRAIN=1600
-PATIENCE=200
+N_EPOCHS_TRAIN=100
+PATIENCE=100
 WEIGHTED=n
 
 if [ "$TUNE" = "y" ]; then

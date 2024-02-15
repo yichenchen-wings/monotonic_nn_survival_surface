@@ -46,11 +46,11 @@ class MonotonicLayer(nn.Module):
         )
 
         self.act = act #activation function
-        self.pos_fn = torch.nn.Softplus()
+        #self.pos_fn = torch.nn.Softplus()
 
         self.A = self._get_A(input_size, output_size) #non-neg
-        self.A_intera_g = self._get_A_intera(input_size, output_size) #non-neg
-        self.A_intera_t = self._get_A_intera(input_size, output_size) #non-neg
+        #self.A_intera_g = self._get_A_intera(input_size, output_size) #non-neg
+        #self.A_intera_t = self._get_A_intera(input_size, output_size) #non-neg
         self.B = self._get_B(z0_input_size, output_size) #whatever sign
         self.G = self._get_G(output_size) #non-neg
         
@@ -89,11 +89,18 @@ class MonotonicLayer(nn.Module):
         G_gamma_t_vs_g = self.G(t_vs_g)
 
         Az = self.A(z)
-        Az_for_t = self.pos_fn(self.A_intera_t(z))
-        Az_for_g = self.pos_fn(self.A_intera_g(z))
+       # Az_for_t = self.pos_fn(self.A_intera_t(z))
+       # Az_for_g = self.pos_fn(self.A_intera_g(z))
         Bz0 = self.B(z0)
         
-        z_new = self.act(Az_for_t*t + alpha_t + Az_for_g*t_vs_g + G_gamma_t_vs_g + Az + Bz0)
+        z_new = self.act(
+            #Az_for_t*t 
+            alpha_t 
+            #+ Az_for_g*t_vs_g 
+            + G_gamma_t_vs_g 
+            + Az 
+            + Bz0
+        )
 
 
         assert z_new.shape == (z.shape[0], self.output_size)
