@@ -192,40 +192,41 @@ df_state_history_sampled_max.head()
 df_state_history_sampled_max.max()
 
 # %%
-subj_train = df_features['subject'][::df_features['subject'].size//1000]
-subj_train_tune = subj_train.sample(n=500)
-subj_val = df_features['subject'].loc[~df_features['subject'].isin(subj_train)].sample(n=500)
-subj_test = df_features['subject'].loc[
-    ~(
-        df_features['subject'].isin(subj_train) |
-        df_features['subject'].isin(subj_val)
-    )
-]
 
-
-for suffix, subj in [
-    ('train_tune', subj_train_tune),
-    ('train', subj_train),
-    ('val', subj_val),
-    ('test', subj_test)
-]:
-    print(f'n_subj in {suffix}:{len(subj)}')
-    df_features_sub = df_features.loc[
-        df_features['subject'].isin(subj),
-        :
+if TUNE:
+    subj_train = df_features['subject'][::df_features['subject'].size//1000]
+    subj_train_tune = subj_train.sample(n=500)
+    subj_val = df_features['subject'].loc[~df_features['subject'].isin(subj_train)].sample(n=500)
+    subj_test = df_features['subject'].loc[
+        ~(
+            df_features['subject'].isin(subj_train) |
+            df_features['subject'].isin(subj_val)
+        )
     ]
-    df_features_sub.to_csv(os.path.join(DIR_RUNTIME_DATA, f'df_features_{suffix}.csv'))
 
-    df_state_history_sampled_max_sub = df_state_history_sampled_max.loc[
-        df_state_history_sampled_max['subject'].isin(subj),
-        :
-    ]
-    df_state_history_sampled_max_sub.to_csv(os.path.join(DIR_RUNTIME_DATA, f'df_state_history_sampled_max_{suffix}.csv'))
+    for suffix, subj in [
+        ('train_tune', subj_train_tune),
+        ('train', subj_train),
+        ('val', subj_val),
+        ('test', subj_test)
+    ]:
+        print(f'n_subj in {suffix}:{len(subj)}')
+        df_features_sub = df_features.loc[
+            df_features['subject'].isin(subj),
+            :
+        ]
+        df_features_sub.to_csv(os.path.join(DIR_RUNTIME_DATA, f'df_features_{suffix}.csv'))
 
-del df_state_history_sampled_max_sub
-del df_features_sub
-del df_state_history_sampled_max
-del df_features
+        df_state_history_sampled_max_sub = df_state_history_sampled_max.loc[
+            df_state_history_sampled_max['subject'].isin(subj),
+            :
+        ]
+        df_state_history_sampled_max_sub.to_csv(os.path.join(DIR_RUNTIME_DATA, f'df_state_history_sampled_max_{suffix}.csv'))
+
+    del df_state_history_sampled_max_sub
+    del df_features_sub
+    del df_state_history_sampled_max
+    del df_features
 
 # %% [markdown]
 # ## Load train val and test sets
@@ -274,7 +275,7 @@ len(ds_val)
 # ## Train model
 from monotonic_nn_surv_surf.utils import losses
 if TRANS_ONLY:
-    loss_fn = losses.LossDyAcrossGResol(g_resol=ds_train.resol_g)
+    loss_fn = losses.LossDyAcrossGResolIndep(g_resol=ds_train.resol_g)
 else:
     loss_fn = losses.loss_bce
 # %%

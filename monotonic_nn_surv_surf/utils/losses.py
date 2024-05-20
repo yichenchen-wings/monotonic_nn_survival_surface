@@ -28,7 +28,8 @@ def loss_dydg(model, ts, gs, xs, ys, weights):
     losses = -torch.mean(weights*losses)
     return losses
 
-class LossDyAcrossGResol:
+
+class LossDyAcrossGResolIndep:
     def __init__(self, g_resol):
         self.g_resol = g_resol
     def __call__(self, model, ts, gs, xs, ys, weights):
@@ -42,6 +43,45 @@ class LossDyAcrossGResol:
         losses = (
             + ys*torch.log(-dy + epsilon) # if observed g (g > 0) at t, then dy/dg (i.e. prob of g occurring by or at t) for (t,g,x) should be high.
             + (1-ys)*torch.log(1-outputs + epsilon)
+        ) 
+        
+        losses = -torch.mean(weights*losses)
+        return losses
+
+        
+class LossDyAcrossGResol:
+    def __init__(self, g_resol):
+        self.g_resol = g_resol
+    def __call__(self, model, ts, gs, xs, ys, weights):
+        model.eval()
+        outputs = model(ts=ts, gs=gs, xs=xs)
+        outputs_bigger_g = model(ts=ts, gs=gs+self.g_resol, xs=xs)
+        dy = outputs_bigger_g - outputs #lager in magnitude the better if y = 1
+        assert torch.all(1e-2 > dy), f"{torch.max(dy)}"
+        dy = torch.clamp(dy, -np.inf, 0)
+        epsilon = 1e-6
+        losses = (
+            ys*(torch.log(-dy + epsilon) + torch.log(1-outputs_bigger_g + epsilon))# considered only if observed g_obs > 0 at t
+            + (1-ys)*torch.log(1-outputs + epsilon) # considered only if observed g_obs == 0 at t
+        ) 
+        
+        losses = -torch.mean(weights*losses)
+        return losses
+
+class BCEDyAcrossGResol:
+    def __init__(self, g_resol):
+        self.g_resol = g_resol
+    def __call__(self, model, ts, gs, xs, ys, weights):
+        model.eval()
+        outputs = model(ts=ts, gs=gs, xs=xs)
+        outputs_bigger_g = model(ts=ts, gs=gs+self.g_resol, xs=xs)
+        dy = outputs_bigger_g - outputs #lager in magnitude the better if y = 1
+        assert torch.all(1e-2 > dy), f"{torch.max(dy)}"
+        dy = torch.clamp(dy, -np.inf, 0)
+        epsilon = 1e-6
+        losses = (
+            ys*(torch.log(outputs + epsilon) + torch.log(1-outputs_bigger_g + epsilon))# considered only if observed g_obs > 0 at t
+            + (1-ys)*torch.log(1-outputs + epsilon) # considered only if observed g_obs == 0 at t
         ) 
         
         losses = -torch.mean(weights*losses)
