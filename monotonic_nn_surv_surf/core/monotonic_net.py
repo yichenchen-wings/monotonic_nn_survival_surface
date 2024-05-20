@@ -89,14 +89,10 @@ class MonotonicLayer(nn.Module):
         G_gamma_t_vs_g = self.G(t_vs_g)
 
         Az = self.A(z)
-       # Az_for_t = self.pos_fn(self.A_intera_t(z))
-       # Az_for_g = self.pos_fn(self.A_intera_g(z))
         Bz0 = self.B(z0)
         
         z_new = self.act(
-            #Az_for_t*t 
             alpha_t 
-            #+ Az_for_g*t_vs_g 
             + G_gamma_t_vs_g 
             + Az 
             + Bz0
