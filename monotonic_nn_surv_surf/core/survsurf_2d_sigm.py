@@ -44,7 +44,7 @@ class SurvSurf2DSigm(nn.Module):
         g_main = self.g_main_block(x_mono=-gs, z=xs)
 
         surfs = torch.sigmoid(t_for_intera)*torch.sigmoid(g_for_intera) + torch.sigmoid(t_main) + torch.sigmoid(g_main)
-        out = self.out_layer(surfs)/(3*self.hidden_dim)
+        out = self.out_layer(surfs)/self.hidden_dim
         return out
     
     def forward(self, ts, gs, xs=None):
