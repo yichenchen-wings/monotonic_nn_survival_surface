@@ -57,7 +57,7 @@ def test_SurvivalSurface_monotone(seed, mid_layer_sizes):
         is_grad_non_neg.append(all(ts.grad >= 0))
         is_grad_non_pos.append(all(gs.grad <= 0))
         min_grad_non_neg = min(min_grad_non_neg, min(ts.grad))
-        max_grad_non_pos = min(max_grad_non_pos, max(gs.grad))
+        max_grad_non_pos = max(max_grad_non_pos, max(gs.grad))
 
     is_grad_non_neg = np.array(is_grad_non_neg)
     is_grad_non_pos = np.array(is_grad_non_pos)

@@ -62,7 +62,7 @@ def test_SurvSurf2DSigm_monotone(seed, hidden_dim, n_layers):
         is_grad_non_neg.append(all(ts.grad >= -1e-6))
         is_grad_non_pos.append(all(gs.grad <= 1e-6))
         min_grad_non_neg = min(min_grad_non_neg, min(ts.grad))
-        max_grad_non_pos = min(max_grad_non_pos, max(gs.grad))
+        max_grad_non_pos = max(max_grad_non_pos, max(gs.grad))
 
     is_grad_non_neg = np.array(is_grad_non_neg)
     is_grad_non_pos = np.array(is_grad_non_pos)
