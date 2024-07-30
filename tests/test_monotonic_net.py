@@ -217,7 +217,7 @@ def test_MonotonicNet_on_gpu():
 
         ts = torch.rand(batch_size, 1).to('cuda')
         gs = torch.rand(batch_size, 1).to('cuda')
-        net = MonotonicNet(latent_sizes=mid_layer_sizes + [1]).to('cuda')
+        net = MonotonicNet(latent_sizes=mid_layer_sizes + [1]).to(device)
         net(t=ts, g=gs, z=None)
     else:
         import warnings
