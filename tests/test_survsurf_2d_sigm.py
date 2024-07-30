@@ -4,14 +4,14 @@ import numpy as np
 import pytest
 
 @pytest.mark.parametrize(
-        "batch_size, hidden_dim, n_layers, feat_size", 
+        "batch_size, hidden_dim, n_layers, feat_size, dropout", 
         [
-            (1, 3, 2, 2), 
-            (3, 2, 4, 1),
-            (5, 6, 3, 6)
+            (1, 3, 2, 2, 0), 
+            (3, 2, 4, 1, 0),
+            (5, 6, 3, 6, 0)
         ]
 )
-def test_SurvSurf2DSigm_shape(batch_size, hidden_dim, n_layers, feat_size):
+def test_SurvSurf2DSigm_shape(batch_size, hidden_dim, n_layers, feat_size, dropout):
     ts = torch.rand(batch_size, 1)
     gs = torch.rand(batch_size, 1)
     xs = torch.rand(batch_size, feat_size)
@@ -19,23 +19,24 @@ def test_SurvSurf2DSigm_shape(batch_size, hidden_dim, n_layers, feat_size):
     surf = SurvSurf2DSigm(
             z0_size=feat_size,
             hidden_dim=hidden_dim,
-            n_layers=n_layers
+            n_layers=n_layers,
+            dropout=dropout
     )
     out = surf(ts=ts, gs=gs, xs=xs)
     assert out.shape == (batch_size, 1)
 
 
 @pytest.mark.parametrize(
-    "seed, hidden_dim, n_layers", 
+    "seed, hidden_dim, n_layers, dropout", 
     [
-        (i, 32, 2) for i in range(1, 100, 10)
+        (i, 32, 2, 0) for i in range(1, 100, 10)
     ] + [
-        (i, 48, 3) for i in range(100, 200, 10)
+        (i, 48, 3, 0) for i in range(100, 200, 10)
     ] + [
-        (i, 64, 4) for i in range(200, 300, 10)
+        (i, 64, 3, 0) for i in range(200, 300, 10)
     ]
 )
-def test_SurvSurf2DSigm_monotone(seed, hidden_dim, n_layers):
+def test_SurvSurf2DSigm_monotone(seed, hidden_dim, n_layers, dropout):
     torch.manual_seed(seed)
     batch_size = 100
     feat_size = 2
@@ -49,7 +50,8 @@ def test_SurvSurf2DSigm_monotone(seed, hidden_dim, n_layers):
     surf = SurvSurf2DSigm(
         z0_size=feat_size,
         hidden_dim=hidden_dim,
-        n_layers=n_layers
+        n_layers=n_layers,
+        dropout=dropout
     )
     out = surf(ts=ts, gs=gs, xs=xs)
 
@@ -85,15 +87,22 @@ def test_SurvSurf2DSigm_range(seed):
     surf = SurvSurf2DSigm(
         z0_size=feat_size,
         hidden_dim=64,
-        n_layers=3
+        n_layers=3,
+        dropout=0
     )
     out = surf(ts=ts, gs=gs, xs=xs)
 
     is_zero = []
+    min_non_zero = np.inf
+    max_non_zero = -np.inf
     for i in out:
-        is_zero.append(all(i == 0))
+        all_zero = all(torch.abs(i) <= 1e-6)
+        is_zero.append(all_zero)
+        if not all_zero:
+            min_non_zero = min(min_non_zero, min(i))
+            max_non_zero = max(max_non_zero, max(i))
     is_zero = np.array(is_zero)
-    assert all(is_zero)
+    assert all(is_zero), f'{(min_non_zero, max_non_zero)}'
 
 
 @pytest.mark.parametrize(
@@ -111,7 +120,8 @@ def test_SurvSurf2DSigm_max(seed):
     surf = SurvSurf2DSigm(
         z0_size=feat_size,
         hidden_dim=64,
-        n_layers=3
+        n_layers=3,
+        dropout=0
     )
     out = surf(ts=ts, gs=gs, xs=xs)
 

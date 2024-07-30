@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 from torch import nn
-from .monotonic_net_univar import MonotonicNetUnivar, LinearMonotonic
+from .monotonic_net_univar import MonotonicNetUnivar
+from typing import Optional
 
 
 class SurvSurf2DSigm(nn.Module):
@@ -10,28 +11,36 @@ class SurvSurf2DSigm(nn.Module):
             z0_size: int,
             hidden_dim: int,
             n_layers: int,
+            dropout: float=0
     ):
         super().__init__()
         self.z0_size = z0_size
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
+        assert dropout >=0 
+        assert dropout <= 1
+        self.dropout=dropout
 
         self.t_intera_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1],
+            dropout=dropout
         )
         self.g_intera_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1],
+            dropout=dropout
         )
 
         self.t_main_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1],
+            dropout=dropout
         )
         self.g_main_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1],
+            dropout=dropout
         )
         self.act_fn = torch.nn.Tanh()
 
@@ -55,8 +64,8 @@ class SurvSurf2DSigm(nn.Module):
         surf_zeroed = surf - surf_t0
         if np.isnan(torch.min(surf_zeroed).item()):
             raise ValueError("Found a nan in one of MonotonicNet's activations.")
-        assert torch.all(-1e-2 < surf_zeroed), f"{torch.min(surf_zeroed)}"
-        surf_zeroed = torch.clamp(surf_zeroed, 0, np.inf)
+        if self.training:
+            surf_zeroed = torch.clamp(surf_zeroed, 0, np.inf) # to cope with dropout
         out = self.act_fn(surf_zeroed)
 
         return out

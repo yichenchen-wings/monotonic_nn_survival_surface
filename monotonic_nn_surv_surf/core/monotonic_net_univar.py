@@ -8,7 +8,7 @@ class LinearMonotonic(nn.Linear):
         return nn.functional.linear(input, weight, self.bias)
 
 class MonotonicLayerUnivar(nn.Module):
-    def __init__(self, input_size, z0_input_size, output_size, act):
+    def __init__(self, input_size, z0_input_size, output_size, act, dropout=0):
         super().__init__()
         self.input_size = input_size
         self.z0_input_size = z0_input_size
@@ -23,8 +23,11 @@ class MonotonicLayerUnivar(nn.Module):
 
         self.A = LinearMonotonic(self.input_size, output_size, bias=False) #non-neg
         self.B = nn.Linear(self.z0_input_size, output_size, bias=True) #whatever sign
+        
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, z, z0, x_mono):
+        z = self.dropout(z)
         assert z.shape == (z.shape[0], self.input_size), f"z.shape={z.shape},self.input_size={self.input_size}"
         assert x_mono.shape == (z.shape[0], 1)
 
@@ -43,10 +46,11 @@ class MonotonicLayerUnivar(nn.Module):
     
 
 class MonotonicNetUnivar(nn.Module):
-    def __init__(self, input_size, layer_sizes):
+    def __init__(self, input_size, layer_sizes, dropout=0):
         super().__init__()
         self.input_size = input_size
         self.layer_sizes = layer_sizes
+        self.dropout = dropout
 
         n_layers = len(self.layer_sizes)
 
@@ -57,6 +61,7 @@ class MonotonicNetUnivar(nn.Module):
             z0_input_size=self.input_size,
             output_size=self.layer_sizes[0],
             act=act,
+            dropout=dropout
         )
 
         self.layers.append(layer)
@@ -69,6 +74,7 @@ class MonotonicNetUnivar(nn.Module):
                 z0_input_size=self.input_size,
                 output_size=self.layer_sizes[i+1],
                 act=act,
+                dropout=dropout
             )
 
             self.layers.append(layer)
