@@ -18,23 +18,22 @@ class SurvSurf2DSigm(nn.Module):
 
         self.t_intera_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
         )
         self.g_intera_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
         )
 
         self.t_main_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
         )
         self.g_main_block = MonotonicNetUnivar(
             input_size=z0_size,
-            layer_sizes=[self.hidden_dim]*self.n_layers
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1]
         )
-        self.out_layer = LinearMonotonic(in_features=self.hidden_dim, out_features=1)
-        self.act_fn = torch.tanh
+        self.act_fn = torch.nn.Tanh()
 
     def monoton_surface(self, ts, gs, xs):
         t_for_intera = self.t_intera_block(x_mono=ts, z=xs)
@@ -43,8 +42,7 @@ class SurvSurf2DSigm(nn.Module):
         t_main = self.t_main_block(x_mono=ts, z=xs)
         g_main = self.g_main_block(x_mono=-gs, z=xs)
 
-        surfs = torch.sigmoid(t_for_intera)*torch.sigmoid(g_for_intera) + torch.sigmoid(t_main) + torch.sigmoid(g_main)
-        out = self.out_layer(surfs)/self.hidden_dim
+        out = torch.sigmoid(t_for_intera)*torch.sigmoid(g_for_intera) + torch.sigmoid(t_main) + torch.sigmoid(g_main)
         return out
     
     def forward(self, ts, gs, xs=None):

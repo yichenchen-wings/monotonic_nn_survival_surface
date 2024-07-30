@@ -3,9 +3,9 @@ import torch.nn as nn
 
 class LinearMonotonic(nn.Linear):
     def forward(self, input):
-        weight_sqr = torch.square(self.weight)
-        assert torch.all(weight_sqr >= 0), f'{weight_sqr}'
-        return nn.functional.linear(input, weight_sqr, self.bias)
+        weight = torch.abs(self.weight)
+        assert torch.all(weight >= 0), f'{weight}'
+        return nn.functional.linear(input, weight, self.bias)
 
 class MonotonicLayerUnivar(nn.Module):
     def __init__(self, input_size, z0_input_size, output_size, act):

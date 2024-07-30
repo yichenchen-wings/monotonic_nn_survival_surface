@@ -50,15 +50,19 @@ def test_SurvivalSurface_monotone(seed, mid_layer_sizes):
 
     is_grad_non_neg = []
     is_grad_non_pos = []
+    min_grad_non_neg = np.inf
+    max_grad_non_pos = -np.inf
     for i in out:
         i.backward(retain_graph=True)
         is_grad_non_neg.append(all(ts.grad >= 0))
         is_grad_non_pos.append(all(gs.grad <= 0))
+        min_grad_non_neg = min(min_grad_non_neg, min(ts.grad))
+        max_grad_non_pos = min(max_grad_non_pos, max(gs.grad))
 
     is_grad_non_neg = np.array(is_grad_non_neg)
     is_grad_non_pos = np.array(is_grad_non_pos)
-    assert all(is_grad_non_neg)
-    assert all(is_grad_non_pos)
+    assert all(is_grad_non_neg), f'min grad for the non-neg varible is {min_grad_non_neg}'
+    assert all(is_grad_non_pos), f'max grad for the non-pos variable is {max_grad_non_pos}'
 
 
 @pytest.mark.parametrize(
