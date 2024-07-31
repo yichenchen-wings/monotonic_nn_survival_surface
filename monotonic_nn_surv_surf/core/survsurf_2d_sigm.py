@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
-from .monotonic_net_univar import MonotonicNetUnivar
+from .monotonic_net_linear_tg import MonotonicNetUnivar, MonotonicNetTGLinear
 from typing import Optional
 
 
@@ -60,6 +60,46 @@ class SurvSurf2DSigm(nn.Module):
 
         surf = self.monoton_surface(ts, gs, xs)
         surf_t0 = self.monoton_surface(t0, gs, xs)
+
+        surf_zeroed = surf - surf_t0
+        if np.isnan(torch.min(surf_zeroed).item()):
+            raise ValueError("Found a nan in one of MonotonicNet's activations.")
+        if self.training:
+            surf_zeroed = torch.clamp(surf_zeroed, 0, np.inf) # to cope with dropout
+        out = self.act_fn(surf_zeroed)
+
+        return out
+    
+
+class SurvSurf2DSigmJoLin(nn.Module): # JointLinear
+    def __init__(
+            self,
+            z0_size: int,
+            hidden_dim: int,
+            n_layers: int,
+            dropout: float=0
+    ):
+        super().__init__()
+        self.z0_size = z0_size
+        self.hidden_dim = hidden_dim
+        self.n_layers = n_layers
+        assert dropout >=0 
+        assert dropout <= 1
+        self.dropout=dropout
+
+        self.monotonice_surfaces_2d = MonotonicNetTGLinear(
+            input_size=z0_size,
+            layer_sizes=[self.hidden_dim]*self.n_layers + [1],
+            dropout=dropout
+        )
+    
+        self.act_fn = torch.tanh
+    def forward(self, ts, gs, xs=None):
+        assert torch.all(gs > 0)
+        t0 = torch.zeros(*ts.shape, device=ts.device)
+
+        surf = self.monotonice_surfaces_2d(t=ts, g=gs, z=xs)
+        surf_t0 = self.monotonice_surfaces_2d(t=t0, g=gs, z=xs)
 
         surf_zeroed = surf - surf_t0
         if np.isnan(torch.min(surf_zeroed).item()):

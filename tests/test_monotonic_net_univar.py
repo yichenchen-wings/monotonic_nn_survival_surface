@@ -1,4 +1,4 @@
-from monotonic_nn_surv_surf.core.monotonic_net_univar import LinearMonotonic, MonotonicLayerUnivar, MonotonicNetUnivar
+from monotonic_nn_surv_surf.core.monotonic_net_linear_tg import LinearMonotonic, MonotonicLayerUnivar, MonotonicNetUnivar
 import torch
 import numpy as np
 import pytest
