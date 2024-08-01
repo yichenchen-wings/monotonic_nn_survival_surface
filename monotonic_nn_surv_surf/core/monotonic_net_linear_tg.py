@@ -83,9 +83,9 @@ class MonotonicLayerTGLinear(nn.Module):
         Bz0 = self.B(z0)
         
         z_new = self.act(
-            alpha_t/self.output_size
-            + gamma_g/self.output_size
-            + Az/self.output_size
+            alpha_t
+            + gamma_g
+            + Az
             + Bz0
         )
         assert z_new.shape == (z.shape[0], self.output_size)
