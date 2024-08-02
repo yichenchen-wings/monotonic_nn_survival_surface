@@ -1,4 +1,4 @@
-from monotonic_nn_surv_surf.core.survsurf_2d_sigm import SurvSurf2DSigm
+from monotonic_nn_surv_surf.core.survsurf_2d_sigm import SurvSurf2DSigmJoLin
 import torch
 import numpy as np
 import pytest
@@ -16,7 +16,7 @@ def test_SurvSurf2DSigm_shape(batch_size, hidden_dim, n_layers, feat_size, dropo
     gs = torch.rand(batch_size, 1)
     xs = torch.rand(batch_size, feat_size)
 
-    surf = SurvSurf2DSigm(
+    surf = SurvSurf2DSigmJoLin(
             z0_size=feat_size,
             hidden_dim=hidden_dim,
             n_layers=n_layers,
@@ -47,7 +47,7 @@ def test_SurvSurf2DSigm_monotone(seed, hidden_dim, n_layers, dropout):
 
     xs = torch.rand(batch_size, feat_size)*100 - 50
 
-    surf = SurvSurf2DSigm(
+    surf = SurvSurf2DSigmJoLin(
         z0_size=feat_size,
         hidden_dim=hidden_dim,
         n_layers=n_layers,
@@ -84,7 +84,7 @@ def test_SurvSurf2DSigm_range(seed):
     gs = torch.rand(batch_size, 1) * 100
     xs = torch.rand(batch_size, feat_size) * 100 - 50
 
-    surf = SurvSurf2DSigm(
+    surf = SurvSurf2DSigmJoLin(
         z0_size=feat_size,
         hidden_dim=64,
         n_layers=3,
@@ -117,7 +117,7 @@ def test_SurvSurf2DSigm_max(seed):
     gs = torch.rand(batch_size, 1) * 1000
     xs = torch.rand(batch_size, feat_size)*1000 - 500
 
-    surf = SurvSurf2DSigm(
+    surf = SurvSurf2DSigmJoLin(
         z0_size=feat_size,
         hidden_dim=64,
         n_layers=3,

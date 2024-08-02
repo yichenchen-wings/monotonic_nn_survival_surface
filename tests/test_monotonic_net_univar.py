@@ -1,4 +1,4 @@
-from monotonic_nn_surv_surf.core.monotonic_net_univar import LinearMonotonic, MonotonicLayerUnivar, MonotonicNetUnivar
+from monotonic_nn_surv_surf.core.monotonic_net_linear_tg import LinearMonotonic, MonotonicLayerUnivar, MonotonicNetUnivar
 import torch
 import numpy as np
 import pytest
@@ -92,21 +92,24 @@ def test_MonotonicLayer_multi_monotone(seed):
         input_size=z.shape[-1], 
         z0_input_size=z0.shape[-1], 
         output_size=30, 
-        act=torch.relu
+        act=torch.relu,
+        dropout=seed/150
     )(z=z, z0=z0, x_mono=x_mono)
     
     z2 = MonotonicLayerUnivar(
         input_size=z1.shape[-1], 
         z0_input_size=z0.shape[-1], 
         output_size=20, 
-        act=torch.relu
+        act=torch.relu,
+        dropout=seed/150
     )(z=z1, z0=z0, x_mono=x_mono)
 
     out = MonotonicLayerUnivar(
         input_size=z2.shape[-1], 
         z0_input_size=z0.shape[-1], 
         output_size=1, 
-        act=torch.relu
+        act=torch.relu,
+        dropout=seed/150
     )(z=z2, z0=z0, x_mono=x_mono)
 
 
@@ -129,20 +132,20 @@ def test_MonotonicNetUnivar_shape():
 
 
 @pytest.mark.parametrize(
-    "seed, mid_layer_sizes", 
+    "seed, mid_layer_sizes, dropout", 
     [
-        (i, [32,32]) for i in range(1, 100, 10)
+        (i, [32,32], i/150) for i in range(1, 100, 10)
     ] + [
-        (i, [32, 64, 32]) for i in range(100, 200, 10)
+        (i, [32, 64, 32], i/300) for i in range(100, 200, 10)
     ] + [
-        (i, [32, 64, 32, 32]) for i in range(200, 300, 10)
+        (i, [32, 64, 32, 32], i/450) for i in range(200, 300, 10)
     ]
 )
-def test_MonotonicNetUnivar_monotone(seed, mid_layer_sizes):
+def test_MonotonicNetUnivar_monotone(seed, mid_layer_sizes, dropout):
     torch.manual_seed(seed)
     batch_size = 100
     x_mono = torch.rand(batch_size, 1, requires_grad=True)
-    net = MonotonicNetUnivar(input_size=mid_layer_sizes[0], layer_sizes=mid_layer_sizes[1:] + [1])
+    net = MonotonicNetUnivar(input_size=mid_layer_sizes[0], layer_sizes=mid_layer_sizes[1:] + [1], dropout=dropout)
     out = net(x_mono=x_mono, z=None)
 
     is_grad_non_neg = []
