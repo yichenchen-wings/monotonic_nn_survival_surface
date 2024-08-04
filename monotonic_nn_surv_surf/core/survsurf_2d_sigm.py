@@ -77,28 +77,34 @@ class SurvSurf2DSigmJoLin(nn.Module): # JointLinear
             z0_size: int,
             hidden_dim: int,
             n_layers: int,
-            dropout: float=0
+            dropout: float=0,
+            zero_at_t0=True
     ):
         super().__init__()
         self.z0_size = z0_size
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
-        assert dropout >=0 
-        assert dropout <= 1
+        self.zero_at_t0 = zero_at_t0
+        assert dropout >= 0 
+        assert dropout < 1
         self.dropout=dropout
 
+        if self.zero_at_t0:
+            sigmoid_act = False
+        else:
+            sigmoid_act = True
+        
         self.monotonice_surfaces_2d = MonotonicNetTGLinear(
             input_size=z0_size,
             layer_sizes=[self.hidden_dim]*self.n_layers + [1],
-            dropout=dropout
+            dropout=dropout,
+            sigmoid_act=sigmoid_act
         )
     
-        self.act_fn = torch.tanh
-    def forward(self, ts, gs, xs=None):
-        assert torch.all(gs > 0)
-        t0 = torch.zeros(*ts.shape, device=ts.device)
-
+    def surface_as_prob_0_at_t0(self, ts, gs, xs):
         surf = self.monotonice_surfaces_2d(t=ts, g=gs, z=xs)
+
+        t0 = torch.zeros(*ts.shape, device=ts.device)
         surf_t0 = self.monotonice_surfaces_2d(t=t0, g=gs, z=xs)
 
         surf_zeroed = surf - surf_t0
@@ -106,7 +112,19 @@ class SurvSurf2DSigmJoLin(nn.Module): # JointLinear
             raise ValueError("Found a nan in one of MonotonicNet's activations.")
         if self.training:
             surf_zeroed = torch.clamp(surf_zeroed, 0, np.inf) # to cope with dropout
-        out = self.act_fn(surf_zeroed)
 
+        out = torch.tanh(surf_zeroed)
         return out
+    
+    def surface_as_prob(self, ts, gs, xs):
+        surf = self.monotonice_surfaces_2d(t=ts, g=gs, z=xs)
+        out = torch.sigmoid(surf)
+        return out
+    
+    def forward(self, ts, gs, xs=None):
+        if self.zero_at_t0:
+            return self.surface_as_prob_0_at_t0(ts=ts, gs=gs, xs=xs)
+        else:
+            return self.surface_as_prob(ts=ts, gs=gs, xs=xs)
+ 
         

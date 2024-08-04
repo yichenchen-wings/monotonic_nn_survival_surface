@@ -142,16 +142,20 @@ class MonotonicNetUnivar(nn.Module):
     
 
 class MonotonicNetTGLinear(nn.Module):
-    def __init__(self, input_size, layer_sizes, dropout=0):
+    def __init__(self, input_size, layer_sizes, dropout=0, sigmoid_act=False):
         super().__init__()
         self.input_size = input_size
         self.layer_sizes = layer_sizes
         self.dropout = dropout
+        self.sigmoid_act = sigmoid_act
 
         n_layers = len(self.layer_sizes)
 
         self.layers = nn.ModuleList([])
-        act = nn.Identity() if n_layers == 1 else nn.ELU()
+        if self.sigmoid_act:
+            act = nn.Identity() if n_layers == 1 else nn.Sigmoid()
+        else:
+            act = nn.Identity() if n_layers == 1 else nn.ELU()
         layer = MonotonicLayerTGLinear(
             input_size=self.input_size,
             z0_input_size=self.input_size,
@@ -163,7 +167,11 @@ class MonotonicNetTGLinear(nn.Module):
         self.layers.append(layer)
         for i in range(n_layers - 1):
             is_last = (i == n_layers - 2)
-            act = nn.Identity() if is_last else nn.ELU()
+            
+            if self.sigmoid_act:
+                act = nn.Identity() if is_last else nn.Sigmoid()
+            else:
+                act = nn.Identity() if is_last else nn.ELU()
 
             layer = MonotonicLayerTGLinear(
                 input_size=self.layer_sizes[i],
