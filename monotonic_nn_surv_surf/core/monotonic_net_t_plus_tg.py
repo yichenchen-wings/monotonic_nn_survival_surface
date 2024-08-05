@@ -8,7 +8,7 @@ class LinearMonotonic(nn.Linear):
         assert torch.all(weight >= 0), f'{weight}'
         return nn.functional.linear(input, weight, self.bias)
 
-class MonotonicLayerTGLinear(nn.Module):
+class MonotonicLayerTaddTG(nn.Module):
     def __init__(self, input_size, z0_input_size, output_size, act, dropout=0):
         super().__init__()
         self.input_size = input_size
@@ -21,6 +21,11 @@ class MonotonicLayerTGLinear(nn.Module):
             bias=False
         )
         self.g_monotone_pos = LinearMonotonic(
+            in_features=1,
+            out_features=output_size, 
+            bias=True
+        )
+        self.tg_monotone_pos = LinearMonotonic(
             in_features=1,
             out_features=output_size, 
             bias=False
@@ -44,7 +49,9 @@ class MonotonicLayerTGLinear(nn.Module):
 
 
         alpha_t = self.t_monotone_pos(t)
-        gamma_g = self.g_monotone_pos(-g)
+        g_mono_down = self.g_monotone_pos(-g)
+        g_mono_down_pos = torch.sigmoid(g_mono_down)
+        gamma_tg = self.tg_monotone_pos(t)*g_mono_down_pos
 
         Az = self.A(z)
         Bz0 = self.B(z0)
@@ -53,7 +60,7 @@ class MonotonicLayerTGLinear(nn.Module):
         
         z_new = self.act(
             alpha_t
-            + gamma_g
+            + gamma_tg
             + Az
             + func_z0
         )
@@ -61,22 +68,19 @@ class MonotonicLayerTGLinear(nn.Module):
         return z_new, func_z0
     
 
-class MonotonicNetTGLinear(nn.Module):
-    def __init__(self, input_size, layer_sizes, dropout=0, sigmoid_act=False):
+class MonotonicNetTaddTG(nn.Module):
+    def __init__(self, input_size, layer_sizes, dropout=0, sigmoid_act=None):
         super().__init__()
         self.input_size = input_size
         self.layer_sizes = layer_sizes
         self.dropout = dropout
-        self.sigmoid_act = sigmoid_act
 
         n_layers = len(self.layer_sizes)
 
         self.layers = nn.ModuleList([])
-        if self.sigmoid_act:
-            act = nn.Identity() if n_layers == 1 else nn.Tanh()
-        else:
-            act = nn.Identity() if n_layers == 1 else nn.ELU()
-        layer = MonotonicLayerTGLinear(
+        
+        act = nn.Identity() if n_layers == 1 else nn.Tanh()
+        layer = MonotonicLayerTaddTG(
             input_size=self.input_size,
             z0_input_size=self.input_size,
             output_size=self.layer_sizes[0],
@@ -88,12 +92,9 @@ class MonotonicNetTGLinear(nn.Module):
         for i in range(n_layers - 1):
             is_last = (i == n_layers - 2)
             
-            if self.sigmoid_act:
-                act = nn.Identity() if is_last else nn.Tanh()
-            else:
-                act = nn.Identity() if is_last else nn.ELU()
+            act = nn.Identity() if is_last else nn.Tanh()
 
-            layer = MonotonicLayerTGLinear(
+            layer = MonotonicLayerTaddTG(
                 input_size=self.layer_sizes[i],
                 z0_input_size=self.input_size,
                 output_size=self.layer_sizes[i+1],
