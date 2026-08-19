@@ -1,4 +1,6 @@
 import torch.nn as nn
+# from ..core.survsurf_2d_sigm import SurvSurf2DTaddTG
+
 from ..core.monotonic_net import MonotonicNet
 from ..core.survival_surface_nn import SurvivalSurface
 
@@ -38,6 +40,27 @@ class LatentFeatFC(nn.Module):
         assert out.shape[-1] == self.sizes[-1]
         return out
 
+
+# class SurvSurfLatent(nn.Module):
+#     def __init__(self, mono_net_sizes, latent_feat_transformer):
+#         super().__init__()
+        
+#         assert mono_net_sizes[-1] == 1
+#         assert mono_net_sizes[0] == latent_feat_transformer.sizes[-1]
+#         assert len(set(mono_net_sizes[1:-1])) == 1
+#         layer_sizes = mono_net_sizes[1:-1][0]
+#         self.mono_net_sizes = mono_net_sizes
+#         self.latent_feat_transformer = latent_feat_transformer
+#         self.surv_surf = SurvSurf2DTaddTG(
+#             z0_size=mono_net_sizes[0],
+#             hidden_dim=layer_sizes,
+#             n_layers=len(mono_net_sizes)-2
+#         )
+
+#     def forward(self, ts, gs, xs):
+#         z0 = self.latent_feat_transformer(xs)
+#         S_tg = self.surv_surf(ts=ts, gs=gs, xs=z0)
+#         return S_tg
 
 class SurvSurfLatent(nn.Module):
     def __init__(self, mono_net_sizes, latent_feat_transformer):
