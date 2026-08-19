@@ -5,7 +5,8 @@ pop_sim_data/results_runtime/*
 pop_sim_data/results_runtime_surf/*
 pop_sim_data/results_end/*
 pop_sim_data/results_end_surf/*
-
+level_curves/*.png
+surf_baseline_subtraction_break_mono/*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
